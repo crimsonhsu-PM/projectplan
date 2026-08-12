@@ -89,7 +89,7 @@ select {
   background: var(--white);
   border: 1px solid var(--line);
   display: grid;
-  grid-template-columns: 1032px 1fr;
+  grid-template-columns: 966px 1fr;
   margin: 0 auto;
   max-width: 1680px;
   overflow: auto;
@@ -97,7 +97,7 @@ select {
 
 .left-pane {
   border-right: 4px solid #c4c7cc;
-  min-width: 1032px;
+  min-width: 966px;
 }
 
 .planner-table .ant-table {
@@ -167,18 +167,6 @@ select {
 .planner-table .description-cell .ant-btn > span:last-child {
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.planner-table .progress-cell .ant-progress {
-  width: 52px;
-}
-
-.planner-table .progress-cell .ant-progress-text {
-  display: none;
-}
-
-.planner-table .progress-cell .ant-tag {
-  margin: 0;
 }
 
 .gantt-pane {
@@ -320,7 +308,7 @@ select {
   }
 
   .sheet {
-    grid-template-columns: 1032px minmax(720px, 1fr);
+    grid-template-columns: 966px minmax(720px, 1fr);
   }
 
   .form-grid,

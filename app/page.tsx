@@ -8,7 +8,6 @@ import {
   Input,
   InputNumber,
   Modal,
-  Progress,
   Select,
   Space,
   Table,
@@ -354,17 +353,6 @@ export default function Home() {
         title: "RM",
         width: 150,
         render: (_, row) => row.item?.rm ?? "",
-      },
-      {
-        title: "progress",
-        width: 66,
-        className: "progress-cell",
-        render: (_, row) => {
-          if (!row.item) {
-            return "";
-          }
-          return row.item.progress >= 100 ? <Tag color="success">TRUE</Tag> : <Progress percent={row.item.progress} size="small" />;
-        },
       },
     ],
     [],
