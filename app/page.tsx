@@ -60,7 +60,7 @@ type PlannerTableRow = {
   project?: string;
 };
 
-const STORAGE_KEY = "rsg-project-plan-v1";
+const STORAGE_KEY = "rsg-project-plan-v2";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const typeOptions = ["全新開發", "優化", "移植開發", "Done", "QA進測前", "待確認"];
@@ -99,24 +99,6 @@ const sampleEpics: Epic[] = [
       row("task-24-8", "24.8", "LED燈條表演規格", "Done", "Simon", "2026-05-05", "2026-05-20", "", 100),
       row("task-24-9", "24.9", "外包音效", "待確認", "PM", "2026-06-17", "2026-06-26", "待排程", 20),
       row("task-24-10", "24.10", "Demo會議", "Done", "Simon", "2026-06-26", "2026-06-26", "", 100),
-    ],
-  },
-  {
-    id: "epic-25",
-    wbs: "25",
-    priority: "2",
-    title: "新增熒幕UI 彈出Bet level 看板功能",
-    type: "優化",
-    assignee: "PM",
-    startDate: "2026-03-20",
-    finishDate: "2026-03-27",
-    duration: 8,
-    rm: "RCM-232 / RCM-277",
-    progress: 60,
-    tasks: [
-      row("task-25-1", "25.1", "help頁面新增全部操作按鈕說明", "優化", "PM", "2026-03-20", "2026-03-23", "RCM-286", 100),
-      row("task-25-2", "25.2", "betlv denom 流程調整", "優化", "Simon", "2026-03-20", "2026-03-27", "RCM-232", 40),
-      row("task-25-3", "25.3", "部署到 dev 並請相關人員確認", "QA進測前", "PM", "2026-03-24", "2026-03-27", "RCM-277", 40),
     ],
   },
 ];
