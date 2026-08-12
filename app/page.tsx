@@ -127,7 +127,10 @@ function addDays(date: Date, days: number) {
 }
 
 function formatIso(date: Date) {
-  return date.toISOString().slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function getDateRange(epics: Epic[]) {
@@ -211,7 +214,7 @@ function blankEpic(nextIndex: number): Epic {
     type: "全新開發",
     assignee: "Simon",
     startDate: defaultProject.startDate,
-    finishDate: addDays(new Date(`${defaultProject.startDate}T00:00:00`), 14).toISOString().slice(0, 10),
+    finishDate: formatIso(addDays(new Date(`${defaultProject.startDate}T00:00:00`), 14)),
     duration: 15,
     rm: "",
     progress: 0,
