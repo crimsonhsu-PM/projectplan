@@ -89,7 +89,7 @@ select {
   background: var(--white);
   border: 1px solid var(--line);
   display: grid;
-  grid-template-columns: 1016px 1fr;
+  grid-template-columns: 1032px 1fr;
   margin: 0 auto;
   max-width: 1680px;
   overflow: auto;
@@ -97,103 +97,88 @@ select {
 
 .left-pane {
   border-right: 4px solid #c4c7cc;
-  min-width: 1016px;
+  min-width: 1032px;
 }
 
-.table-grid {
-  display: grid;
-  grid-template-columns: 46px 56px 310px 102px 70px 84px 84px 64px 150px 66px;
-}
-
-.table-grid > span {
-  align-items: center;
-  border-right: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-  display: flex;
-  min-height: 36px;
-  overflow: hidden;
-  padding: 0 6px;
-  white-space: nowrap;
-}
-
-.table-head > span {
-  background: var(--sheet-blue);
-  border-color: #1f4482;
-  color: #fff;
-  font-size: 13px;
-  font-weight: 700;
-  justify-content: center;
-  min-height: 64px;
-  text-align: center;
-}
-
-.table-head > span:last-child {
-  background: var(--sheet-orange);
-}
-
-.data-row > span {
+.planner-table .ant-table {
+  border-radius: 0;
+  color: #0f172a;
   font-size: 14px;
 }
 
-.epic-row > span {
-  background: var(--epic-fill);
+.planner-table .ant-table-container,
+.planner-table .ant-table-content,
+.planner-table table {
+  border-radius: 0 !important;
+}
+
+.planner-table .ant-table-thead > tr > th {
+  background: #f0f5ff;
+  border-color: #c7d7f4 !important;
+  color: #1f2a44;
+  font-size: 13px;
+  font-weight: 700;
+  height: 64px;
+  padding: 0 6px;
+  text-align: center;
+}
+
+.planner-table .ant-table-thead > tr > th::before {
+  display: none;
+}
+
+.planner-table .ant-table-tbody > tr > td {
+  border-color: #d4ddea !important;
+  height: 36px;
+  padding: 0 6px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.planner-table .ant-table-tbody > tr.epic-row > td {
+  background: #fff7d6;
   font-weight: 700;
 }
 
-.epic-row .description button {
-  background: transparent;
-  border: 0;
-  color: #075ed2;
+.planner-table .ant-table-tbody > tr.section-row > td {
+  background: #f4f0ff;
+  color: #526070;
+  font-size: 13px;
+  height: 20px;
+}
+
+.planner-table .ant-table-tbody > tr.task-row > td:nth-child(2) {
+  background: #e4f4dd;
+}
+
+.planner-table .ant-table-tbody > tr:hover > td {
+  background: #eef6ff;
+}
+
+.planner-table .description-cell .ant-btn {
+  align-items: center;
   font-weight: 700;
-  height: auto;
+  height: 24px;
+  justify-content: flex-start;
+  max-width: 100%;
   padding: 0;
-  text-align: left;
-  text-decoration: underline;
 }
 
-.epic-row .description .ant-btn > span {
+.planner-table .description-cell .ant-btn > span:last-child {
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.task-row .wbs {
-  justify-content: center;
-}
-
-.section-row {
-  display: grid;
-  grid-template-columns: 46px 56px 310px 102px 70px 84px 84px 64px 150px 66px;
-}
-
-.section-row span {
-  align-items: center;
-  background: var(--band);
-  border-bottom: 1px solid var(--line);
-  border-right: 1px solid var(--line);
-  display: flex;
-  font-size: 13px;
-  min-height: 20px;
-  padding: 0 6px;
-}
-
-.section-row span:nth-child(2) {
-  justify-content: center;
-}
-
-.task-row span:nth-child(2) {
-  background: var(--task-green);
-}
-
-.progress-text {
-  justify-content: center;
-}
-
-.progress-text .ant-progress {
+.planner-table .progress-cell .ant-progress {
   width: 52px;
 }
 
-.progress-text .ant-progress-text {
+.planner-table .progress-cell .ant-progress-text {
   display: none;
+}
+
+.planner-table .progress-cell .ant-tag {
+  margin: 0;
 }
 
 .gantt-pane {
@@ -251,6 +236,11 @@ select {
   border-bottom: 1px solid var(--line);
   min-height: 36px;
   position: relative;
+}
+
+.gantt-line.section-line {
+  background: #f4f0ff;
+  min-height: 20px;
 }
 
 .gantt-line.epic-line {
@@ -330,7 +320,7 @@ select {
   }
 
   .sheet {
-    grid-template-columns: 1016px minmax(720px, 1fr);
+    grid-template-columns: 1032px minmax(720px, 1fr);
   }
 
   .form-grid,

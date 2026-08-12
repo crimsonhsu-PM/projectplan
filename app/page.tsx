@@ -11,9 +11,11 @@ import {
   Progress,
   Select,
   Space,
+  Table,
   Tag,
   Typography,
 } from "antd";
+import type { TableProps } from "antd";
 import {
   CalendarOutlined,
   DeleteOutlined,
@@ -46,6 +48,16 @@ type ProjectMeta = {
   projectName: string;
   startDate: string;
   wk: string;
+};
+
+type PlannerTableRow = {
+  key: string;
+  rowKind: "epic" | "section" | "task";
+  epicId: string;
+  item?: Task;
+  priority?: string;
+  department?: string;
+  project?: string;
 };
 
 const STORAGE_KEY = "rsg-project-plan-v1";
@@ -272,10 +284,109 @@ export default function Home() {
   }, [epics, hasLoaded, project]);
 
   const editingEpic = epics.find((epic) => epic.id === editingEpicId) ?? null;
-  const rows = epics.flatMap((epic) => [epic, ...epic.tasks]);
+  const tableRows = useMemo<PlannerTableRow[]>(
+    () =>
+      epics.flatMap((epic) => [
+        {
+          key: epic.id,
+          rowKind: "epic" as const,
+          epicId: epic.id,
+          item: epic,
+          priority: epic.priority,
+        },
+        {
+          key: `${epic.id}-section`,
+          rowKind: "section" as const,
+          epicId: epic.id,
+          department: "部門",
+          project: "項目",
+        },
+        ...epic.tasks.map((task) => ({
+          key: task.id,
+          rowKind: "task" as const,
+          epicId: epic.id,
+          item: task,
+        })),
+      ]),
+    [epics],
+  );
   const { start, end } = useMemo(() => getDateRange(epics), [epics]);
   const days = useMemo(() => enumerateDays(start, end), [start, end]);
   const weeks = useMemo(() => days.filter((day) => day.getDay() === 1), [days]);
+  const tableColumns = useMemo<TableProps<PlannerTableRow>["columns"]>(
+    () => [
+      {
+        title: "WBS",
+        width: 46,
+        render: (_, row) => row.item?.wbs ?? "",
+      },
+      {
+        title: "Priority",
+        width: 56,
+        render: (_, row) => row.priority ?? row.department ?? "",
+      },
+      {
+        title: "Epic/Task description",
+        width: 310,
+        className: "description-cell",
+        render: (_, row) => {
+          if (row.rowKind === "section") {
+            return row.project;
+          }
+          if (row.rowKind === "epic" && row.item) {
+            return (
+              <Button type="link" size="small" icon={<EditOutlined />} onClick={() => setEditingEpicId(row.epicId)}>
+                {row.item.title}
+              </Button>
+            );
+          }
+          return row.item?.title ?? "";
+        },
+      },
+      {
+        title: "Type",
+        width: 102,
+        render: (_, row) => row.item?.type ?? "",
+      },
+      {
+        title: "Assignee",
+        width: 70,
+        render: (_, row) => row.item?.assignee ?? "",
+      },
+      {
+        title: "Start date",
+        width: 84,
+        render: (_, row) => row.item?.startDate.slice(2) ?? "",
+      },
+      {
+        title: "Finish date",
+        width: 84,
+        render: (_, row) => row.item?.finishDate.slice(2) ?? "",
+      },
+      {
+        title: "Duration",
+        width: 64,
+        render: (_, row) => row.item?.duration ?? "",
+      },
+      {
+        title: "RM",
+        width: 150,
+        render: (_, row) => row.item?.rm ?? "",
+      },
+      {
+        title: "progress",
+        width: 66,
+        className: "progress-cell",
+        render: (_, row) => {
+          if (!row.item) {
+            return "";
+          }
+          return row.item.progress >= 100 ? <Tag color="success">TRUE</Tag> : <Progress percent={row.item.progress} size="small" />;
+        },
+      },
+    ],
+    [],
+  );
 
   function updateEpic(epicId: string, patch: Partial<Epic>) {
     setEpics((current) =>
@@ -381,43 +492,16 @@ export default function Home() {
 
       <section className="sheet" aria-label="Epic 與 Task 甘特圖">
         <div className="left-pane">
-          <div className="table-grid table-head">
-            <span>WBS</span>
-            <span>Priority</span>
-            <span>Epic/Task description</span>
-            <span>Type</span>
-            <span>Assignee</span>
-            <span>Start date</span>
-            <span>Finish date</span>
-            <span>Duration</span>
-            <span>RM</span>
-            <span>progress</span>
-          </div>
-          {epics.map((epic) => (
-            <div className="row-group" key={epic.id}>
-              <PlannerRow
-                item={epic}
-                isEpic
-                priority={epic.priority}
-                onTitleClick={() => setEditingEpicId(epic.id)}
-              />
-              <div className="section-row">
-                <span />
-                <span>部門</span>
-                <span>項目</span>
-                <span />
-                <span />
-                <span />
-                <span />
-                <span />
-                <span />
-                <span />
-              </div>
-              {epic.tasks.map((task) => (
-                <PlannerRow item={task} key={task.id} />
-              ))}
-            </div>
-          ))}
+          <Table<PlannerTableRow>
+            bordered
+            className="planner-table"
+            columns={tableColumns}
+            dataSource={tableRows}
+            pagination={false}
+            rowClassName={(row) => `${row.rowKind}-row`}
+            size="small"
+            tableLayout="fixed"
+          />
         </div>
 
         <div
@@ -446,19 +530,22 @@ export default function Home() {
               <span key={day.toISOString()}>{weekday(day)}</span>
             ))}
           </div>
-          {rows.map((item) => {
-            const isEpic = "tasks" in item;
-            const offset = getOffset(item.startDate);
-            const span = Math.max(1, getDuration(item.startDate, item.finishDate));
+          {tableRows.map((row) => {
+            if (!row.item) {
+              return <div className="gantt-line section-line" key={row.key} />;
+            }
+            const isEpic = row.rowKind === "epic";
+            const offset = getOffset(row.item.startDate);
+            const span = Math.max(1, getDuration(row.item.startDate, row.item.finishDate));
             return (
-              <div className={isEpic ? "gantt-line epic-line" : "gantt-line"} key={item.id}>
+              <div className={isEpic ? "gantt-line epic-line" : "gantt-line"} key={row.key}>
                 <span
                   className={isEpic ? "bar epic-bar" : "bar"}
                   style={{
                     gridColumn: `${offset + 1} / span ${span}`,
-                    "--progress": `${item.progress}%`,
+                    "--progress": `${row.item.progress}%`,
                   } as React.CSSProperties}
-                  title={`${item.title} ${item.startDate} - ${item.finishDate}`}
+                  title={`${row.item.title} ${row.item.startDate} - ${row.item.finishDate}`}
                 />
               </div>
             );
@@ -601,43 +688,6 @@ export default function Home() {
       </Modal>
       </main>
     </ConfigProvider>
-  );
-}
-
-function PlannerRow({
-  item,
-  isEpic = false,
-  priority = "",
-  onTitleClick,
-}: {
-  item: Task;
-  isEpic?: boolean;
-  priority?: string;
-  onTitleClick?: () => void;
-}) {
-  return (
-    <div className={isEpic ? "table-grid data-row epic-row" : "table-grid data-row task-row"}>
-      <span className="wbs">{item.wbs}</span>
-      <span>{priority}</span>
-      <span className="description">
-        {isEpic ? (
-          <Button type="link" size="small" icon={<EditOutlined />} onClick={onTitleClick}>
-            {item.title}
-          </Button>
-        ) : (
-          item.title
-        )}
-      </span>
-      <span>{item.type}</span>
-      <span>{item.assignee}</span>
-      <span>{item.startDate.slice(2).replaceAll("-", "-")}</span>
-      <span>{item.finishDate.slice(2).replaceAll("-", "-")}</span>
-      <span>{item.duration}</span>
-      <span>{item.rm}</span>
-      <span className="progress-text">
-        {item.progress >= 100 ? <Tag color="success">TRUE</Tag> : <Progress percent={item.progress} size="small" />}
-      </span>
-    </div>
   );
 }
 
