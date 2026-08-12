@@ -38,10 +38,6 @@ select {
   font: inherit;
 }
 
-button {
-  cursor: pointer;
-}
-
 .planner {
   min-height: 100vh;
   padding: 18px;
@@ -60,36 +56,33 @@ button {
 }
 
 .project-title span,
-.project-header label {
+.project-header label,
+.form-grid label {
   color: var(--muted);
   display: grid;
   font-size: 12px;
   gap: 5px;
 }
 
-.project-title strong {
-  display: block;
-  font-size: 20px;
-  line-height: 1.2;
+.project-title .ant-typography {
+  margin: 4px 0 0;
 }
 
-.project-header input,
-.modal input,
-.modal select {
-  background: var(--white);
-  border: 1px solid #cdd4e0;
-  min-height: 36px;
-  padding: 7px 9px;
+.project-header .ant-picker,
+.project-header .ant-input,
+.form-grid .ant-picker,
+.form-grid .ant-input,
+.form-grid .ant-select,
+.form-grid .ant-input-number,
+.task-card .ant-picker,
+.task-card .ant-input,
+.task-card .ant-select,
+.task-card .ant-input-number {
   width: 100%;
 }
 
-.primary-action,
-.task-toolbar button {
-  background: #16815d;
-  border: 1px solid #0f6a4c;
-  color: white;
-  min-height: 38px;
-  padding: 0 14px;
+.project-header > .ant-btn {
+  align-self: end;
 }
 
 .sheet {
@@ -152,9 +145,15 @@ button {
   border: 0;
   color: #075ed2;
   font-weight: 700;
+  height: auto;
   padding: 0;
   text-align: left;
   text-decoration: underline;
+}
+
+.epic-row .description .ant-btn > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .task-row .wbs {
@@ -186,8 +185,15 @@ button {
 }
 
 .progress-text {
-  color: #ff8a00;
   justify-content: center;
+}
+
+.progress-text .ant-progress {
+  width: 52px;
+}
+
+.progress-text .ant-progress-text {
+  display: none;
 }
 
 .gantt-pane {
@@ -264,28 +270,6 @@ button {
   opacity: 0.92;
 }
 
-.modal-backdrop {
-  align-items: center;
-  background: rgba(13, 20, 33, 0.48);
-  display: flex;
-  inset: 0;
-  justify-content: center;
-  padding: 18px;
-  position: fixed;
-  z-index: 20;
-}
-
-.modal {
-  background: white;
-  border: 1px solid #c6ccd7;
-  box-shadow: 0 22px 60px rgba(17, 24, 39, 0.24);
-  max-height: min(760px, calc(100vh - 36px));
-  max-width: 1180px;
-  overflow: auto;
-  padding: 18px;
-  width: min(1180px, 100%);
-}
-
 .modal-header,
 .task-toolbar {
   align-items: center;
@@ -294,30 +278,9 @@ button {
   gap: 12px;
 }
 
-.modal-header span {
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.modal h2,
-.modal h3 {
+.modal-header .ant-typography,
+.task-toolbar .ant-typography {
   margin: 0;
-}
-
-.modal h2 {
-  font-size: 22px;
-  line-height: 1.25;
-  margin-top: 2px;
-}
-
-.icon-button {
-  background: #eef2f7;
-  border: 1px solid #d7deea;
-  border-radius: 50%;
-  font-size: 24px;
-  height: 38px;
-  line-height: 1;
-  width: 38px;
 }
 
 .form-grid {
@@ -325,13 +288,6 @@ button {
   gap: 12px;
   grid-template-columns: 2fr repeat(5, 1fr);
   margin: 18px 0;
-}
-
-.form-grid label {
-  color: var(--muted);
-  display: grid;
-  font-size: 12px;
-  gap: 5px;
 }
 
 .task-toolbar {
@@ -359,13 +315,6 @@ button {
   font-weight: 700;
 }
 
-.danger {
-  background: #fff2f0;
-  border: 1px solid #ffb4ab;
-  color: #9d1c12;
-  min-height: 36px;
-}
-
 @media (max-width: 900px) {
   .planner {
     padding: 10px;
@@ -376,7 +325,7 @@ button {
   }
 
   .project-title,
-  .primary-action {
+  .project-header > .ant-btn {
     grid-column: 1 / -1;
   }
 

@@ -1,6 +1,27 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import {
+  Button,
+  ConfigProvider,
+  DatePicker,
+  Input,
+  InputNumber,
+  Modal,
+  Progress,
+  Select,
+  Space,
+  Tag,
+  Typography,
+} from "antd";
+import {
+  CalendarOutlined,
+  DeleteOutlined,
+  EditOutlined,
+  PlusOutlined,
+  ProjectOutlined,
+} from "@ant-design/icons";
+import dayjs from "dayjs";
 
 type Task = {
   id: string;
@@ -32,6 +53,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 const typeOptions = ["全新開發", "優化", "移植開發", "Done", "QA進測前", "待確認"];
 const assignees = ["Simon", "PM", "Clara", "Anna", "Della", "shock", "GMS", "Will"];
+const typeSelectOptions = typeOptions.map((type) => ({ label: type, value: type }));
+const assigneeSelectOptions = assignees.map((name) => ({ label: name, value: name }));
 
 const defaultProject: ProjectMeta = {
   projectType: "機台、線上",
@@ -307,34 +330,53 @@ export default function Home() {
   }
 
   return (
-    <main className="planner">
+    <ConfigProvider
+      theme={{
+        token: {
+          borderRadius: 6,
+          colorPrimary: "#1f5f9f",
+          fontFamily: 'Arial, "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif',
+        },
+        components: {
+          Button: {
+            controlHeight: 38,
+          },
+          Modal: {
+            borderRadiusLG: 8,
+          },
+        },
+      }}
+    >
+      <main className="planner">
       <section className="project-header" aria-label="專案資訊">
         <div className="project-title">
-          <span>RSG Project plan</span>
-          <strong>{project.projectName}</strong>
+          <Space size={8}>
+            <ProjectOutlined />
+            <span>RSG Project plan</span>
+          </Space>
+          <Typography.Title level={3}>{project.projectName}</Typography.Title>
         </div>
-        <label>
-          Project type
-          <input
+        <Field label="Project type">
+          <Input
             value={project.projectType}
             onChange={(event) => setProject({ ...project, projectType: event.target.value })}
           />
-        </label>
-        <label>
-          Start date
-          <input
-            type="date"
-            value={project.startDate}
-            onChange={(event) => setProject({ ...project, startDate: event.target.value })}
+        </Field>
+        <Field label="Start date">
+          <DatePicker
+            value={dayjs(project.startDate)}
+            onChange={(date) => setProject({ ...project, startDate: date ? date.format("YYYY-MM-DD") : project.startDate })}
+            suffixIcon={<CalendarOutlined />}
+            allowClear={false}
+            inputReadOnly
           />
-        </label>
-        <label>
-          WK
-          <input value={project.wk} onChange={(event) => setProject({ ...project, wk: event.target.value })} />
-        </label>
-        <button className="primary-action" type="button" onClick={addEpic}>
-          + 新增 EPIC
-        </button>
+        </Field>
+        <Field label="WK">
+          <Input value={project.wk} onChange={(event) => setProject({ ...project, wk: event.target.value })} />
+        </Field>
+        <Button type="primary" icon={<PlusOutlined />} onClick={addEpic}>
+          新增 EPIC
+        </Button>
       </section>
 
       <section className="sheet" aria-label="Epic 與 Task 甘特圖">
@@ -424,136 +466,141 @@ export default function Home() {
         </div>
       </section>
 
-      {editingEpic ? (
-        <div className="modal-backdrop" role="presentation" onMouseDown={() => setEditingEpicId(null)}>
-          <section
-            className="modal"
-            role="dialog"
-            aria-modal="true"
-            aria-label="編輯 Epic 與 Tasks"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
+      <Modal
+        className="epic-modal"
+        footer={null}
+        onCancel={() => setEditingEpicId(null)}
+        open={Boolean(editingEpic)}
+        title={null}
+        width={1180}
+        destroyOnHidden
+      >
+        {editingEpic ? (
+          <>
             <div className="modal-header">
               <div>
-                <span>EPIC {editingEpic.wbs}</span>
-                <h2>{editingEpic.title}</h2>
+                <Tag color="blue">EPIC {editingEpic.wbs}</Tag>
+                <Typography.Title level={3}>{editingEpic.title}</Typography.Title>
               </div>
-              <button className="icon-button" type="button" onClick={() => setEditingEpicId(null)} aria-label="關閉">
-                ×
-              </button>
             </div>
 
             <div className="form-grid">
               <Field label="Epic 標題">
-                <input value={editingEpic.title} onChange={(event) => updateEpic(editingEpic.id, { title: event.target.value })} />
+                <Input
+                  value={editingEpic.title}
+                  onChange={(event) => updateEpic(editingEpic.id, { title: event.target.value })}
+                />
               </Field>
               <Field label="Type">
-                <select value={editingEpic.type} onChange={(event) => updateEpic(editingEpic.id, { type: event.target.value })}>
-                  {typeOptions.map((type) => (
-                    <option key={type}>{type}</option>
-                  ))}
-                </select>
+                <Select
+                  options={typeSelectOptions}
+                  value={editingEpic.type}
+                  onChange={(value) => updateEpic(editingEpic.id, { type: value })}
+                />
               </Field>
               <Field label="Assignee">
-                <select
+                <Select
+                  options={assigneeSelectOptions}
                   value={editingEpic.assignee}
-                  onChange={(event) => updateEpic(editingEpic.id, { assignee: event.target.value })}
-                >
-                  {assignees.map((name) => (
-                    <option key={name}>{name}</option>
-                  ))}
-                </select>
+                  onChange={(value) => updateEpic(editingEpic.id, { assignee: value })}
+                />
               </Field>
               <Field label="Start date">
-                <input
-                  type="date"
-                  value={editingEpic.startDate}
-                  onChange={(event) => updateEpic(editingEpic.id, { startDate: event.target.value })}
+                <DatePicker
+                  allowClear={false}
+                  inputReadOnly
+                  value={dayjs(editingEpic.startDate)}
+                  onChange={(date) => updateEpic(editingEpic.id, { startDate: date ? date.format("YYYY-MM-DD") : editingEpic.startDate })}
                 />
               </Field>
               <Field label="Finish date">
-                <input
-                  type="date"
-                  value={editingEpic.finishDate}
-                  onChange={(event) => updateEpic(editingEpic.id, { finishDate: event.target.value })}
+                <DatePicker
+                  allowClear={false}
+                  inputReadOnly
+                  value={dayjs(editingEpic.finishDate)}
+                  onChange={(date) =>
+                    updateEpic(editingEpic.id, { finishDate: date ? date.format("YYYY-MM-DD") : editingEpic.finishDate })
+                  }
                 />
               </Field>
               <Field label="Progress">
-                <input
-                  type="number"
+                <InputNumber
                   min="0"
                   max="100"
                   value={editingEpic.progress}
-                  onChange={(event) => updateEpic(editingEpic.id, { progress: Number(event.target.value) })}
+                  addonAfter="%"
+                  onChange={(value) => updateEpic(editingEpic.id, { progress: Number(value) })}
                 />
               </Field>
             </div>
 
             <div className="task-toolbar">
-              <h3>Tasks</h3>
-              <button type="button" onClick={() => addTask(editingEpic.id)}>
-                + 新增 Task
-              </button>
+              <Typography.Title level={4}>Tasks</Typography.Title>
+              <Button type="primary" icon={<PlusOutlined />} onClick={() => addTask(editingEpic.id)}>
+                新增 Task
+              </Button>
             </div>
 
             <div className="task-editor">
               {editingEpic.tasks.map((task) => (
                 <div className="task-card" key={task.id}>
-                  <input
+                  <Input
                     className="task-title"
                     value={task.title}
                     onChange={(event) => updateTask(editingEpic.id, task.id, { title: event.target.value })}
                     aria-label={`${task.wbs} 任務名稱`}
                   />
-                  <select value={task.type} onChange={(event) => updateTask(editingEpic.id, task.id, { type: event.target.value })}>
-                    {typeOptions.map((type) => (
-                      <option key={type}>{type}</option>
-                    ))}
-                  </select>
-                  <select
+                  <Select
+                    options={typeSelectOptions}
+                    value={task.type}
+                    onChange={(value) => updateTask(editingEpic.id, task.id, { type: value })}
+                  />
+                  <Select
+                    options={assigneeSelectOptions}
                     value={task.assignee}
-                    onChange={(event) => updateTask(editingEpic.id, task.id, { assignee: event.target.value })}
-                  >
-                    {assignees.map((name) => (
-                      <option key={name}>{name}</option>
-                    ))}
-                  </select>
-                  <input
-                    type="date"
-                    value={task.startDate}
-                    onChange={(event) => updateTask(editingEpic.id, task.id, { startDate: event.target.value })}
+                    onChange={(value) => updateTask(editingEpic.id, task.id, { assignee: value })}
+                  />
+                  <DatePicker
+                    allowClear={false}
+                    inputReadOnly
+                    value={dayjs(task.startDate)}
+                    onChange={(date) => updateTask(editingEpic.id, task.id, { startDate: date ? date.format("YYYY-MM-DD") : task.startDate })}
                     aria-label={`${task.wbs} 開始日期`}
                   />
-                  <input
-                    type="date"
-                    value={task.finishDate}
-                    onChange={(event) => updateTask(editingEpic.id, task.id, { finishDate: event.target.value })}
+                  <DatePicker
+                    allowClear={false}
+                    inputReadOnly
+                    value={dayjs(task.finishDate)}
+                    onChange={(date) =>
+                      updateTask(editingEpic.id, task.id, { finishDate: date ? date.format("YYYY-MM-DD") : task.finishDate })
+                    }
                     aria-label={`${task.wbs} 結束日期`}
                   />
-                  <input
-                    type="number"
+                  <InputNumber
                     min="0"
                     max="100"
                     value={task.progress}
-                    onChange={(event) => updateTask(editingEpic.id, task.id, { progress: Number(event.target.value) })}
+                    addonAfter="%"
+                    onChange={(value) => updateTask(editingEpic.id, task.id, { progress: Number(value) })}
                     aria-label={`${task.wbs} 進度`}
                   />
-                  <input
+                  <Input
                     value={task.rm}
                     onChange={(event) => updateTask(editingEpic.id, task.id, { rm: event.target.value })}
                     placeholder="RM / JIRA"
                     aria-label={`${task.wbs} RM`}
                   />
-                  <button className="danger" type="button" onClick={() => deleteTask(editingEpic.id, task.id)}>
+                  <Button danger icon={<DeleteOutlined />} onClick={() => deleteTask(editingEpic.id, task.id)}>
                     刪除
-                  </button>
+                  </Button>
                 </div>
               ))}
             </div>
-          </section>
-        </div>
-      ) : null}
-    </main>
+          </>
+        ) : null}
+      </Modal>
+      </main>
+    </ConfigProvider>
   );
 }
 
@@ -574,9 +621,9 @@ function PlannerRow({
       <span>{priority}</span>
       <span className="description">
         {isEpic ? (
-          <button type="button" onClick={onTitleClick}>
+          <Button type="link" size="small" icon={<EditOutlined />} onClick={onTitleClick}>
             {item.title}
-          </button>
+          </Button>
         ) : (
           item.title
         )}
@@ -587,7 +634,9 @@ function PlannerRow({
       <span>{item.finishDate.slice(2).replaceAll("-", "-")}</span>
       <span>{item.duration}</span>
       <span>{item.rm}</span>
-      <span className="progress-text">{item.progress >= 100 ? "TRUE" : `${item.progress}%`}</span>
+      <span className="progress-text">
+        {item.progress >= 100 ? <Tag color="success">TRUE</Tag> : <Progress percent={item.progress} size="small" />}
+      </span>
     </div>
   );
 }
