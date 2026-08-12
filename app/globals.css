@@ -89,7 +89,7 @@ select {
   background: var(--white);
   border: 1px solid var(--line);
   display: grid;
-  grid-template-columns: 966px 1fr;
+  grid-template-columns: 984px 1fr;
   margin: 0 auto;
   max-width: 1680px;
   overflow: auto;
@@ -97,7 +97,7 @@ select {
 
 .left-pane {
   border-right: 4px solid #c4c7cc;
-  min-width: 966px;
+  min-width: 984px;
 }
 
 .planner-table .ant-table {
@@ -167,6 +167,18 @@ select {
 .planner-table .description-cell .ant-btn > span:last-child {
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.planner-table .wbs-toggle {
+  align-items: center;
+  display: inline-flex;
+  line-height: 1;
+}
+
+.planner-table .wbs-toggle .ant-btn {
+  height: 22px;
+  min-width: 22px;
+  width: 22px;
 }
 
 .gantt-pane {
@@ -308,7 +320,7 @@ select {
   }
 
   .sheet {
-    grid-template-columns: 966px minmax(720px, 1fr);
+    grid-template-columns: 984px minmax(720px, 1fr);
   }
 
   .form-grid,

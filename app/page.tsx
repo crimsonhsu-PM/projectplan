@@ -18,9 +18,11 @@ import type { TableProps } from "antd";
 import {
   CalendarOutlined,
   DeleteOutlined,
+  DownOutlined,
   EditOutlined,
   PlusOutlined,
   ProjectOutlined,
+  RightOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 
@@ -242,6 +244,7 @@ export default function Home() {
   const [project, setProject] = useState<ProjectMeta>(defaultProject);
   const [epics, setEpics] = useState<Epic[]>(sampleEpics);
   const [editingEpicId, setEditingEpicId] = useState<string | null>(null);
+  const [collapsedEpicIds, setCollapsedEpicIds] = useState<Set<string>>(new Set());
   const [hasLoaded, setHasLoaded] = useState(false);
 
   useEffect(() => {
@@ -267,29 +270,35 @@ export default function Home() {
   const editingEpic = epics.find((epic) => epic.id === editingEpicId) ?? null;
   const tableRows = useMemo<PlannerTableRow[]>(
     () =>
-      epics.flatMap((epic) => [
-        {
+      epics.flatMap((epic) => {
+        const epicRow = {
           key: epic.id,
           rowKind: "epic" as const,
           epicId: epic.id,
           item: epic,
           priority: epic.priority,
-        },
-        {
-          key: `${epic.id}-section`,
-          rowKind: "section" as const,
-          epicId: epic.id,
-          department: "部門",
-          project: "項目",
-        },
-        ...epic.tasks.map((task) => ({
-          key: task.id,
-          rowKind: "task" as const,
-          epicId: epic.id,
-          item: task,
-        })),
-      ]),
-    [epics],
+        };
+        if (collapsedEpicIds.has(epic.id)) {
+          return [epicRow];
+        }
+        return [
+          epicRow,
+          {
+            key: `${epic.id}-section`,
+            rowKind: "section" as const,
+            epicId: epic.id,
+            department: "部門",
+            project: "項目",
+          },
+          ...epic.tasks.map((task) => ({
+            key: task.id,
+            rowKind: "task" as const,
+            epicId: epic.id,
+            item: task,
+          })),
+        ];
+      }),
+    [collapsedEpicIds, epics],
   );
   const { start, end } = useMemo(() => getDateRange(epics), [epics]);
   const days = useMemo(() => enumerateDays(start, end), [start, end]);
@@ -298,8 +307,25 @@ export default function Home() {
     () => [
       {
         title: "WBS",
-        width: 46,
-        render: (_, row) => row.item?.wbs ?? "",
+        width: 64,
+        render: (_, row) => {
+          if (row.rowKind === "epic" && row.item) {
+            const isCollapsed = collapsedEpicIds.has(row.epicId);
+            return (
+              <Space className="wbs-toggle" size={2}>
+                <Button
+                  aria-label={isCollapsed ? "展開 Tasks" : "收合 Tasks"}
+                  icon={isCollapsed ? <RightOutlined /> : <DownOutlined />}
+                  onClick={() => toggleEpic(row.epicId)}
+                  size="small"
+                  type="text"
+                />
+                <span>{row.item.wbs}</span>
+              </Space>
+            );
+          }
+          return row.item?.wbs ?? "";
+        },
       },
       {
         title: "Priority",
@@ -355,8 +381,20 @@ export default function Home() {
         render: (_, row) => row.item?.rm ?? "",
       },
     ],
-    [],
+    [collapsedEpicIds],
   );
+
+  function toggleEpic(epicId: string) {
+    setCollapsedEpicIds((current) => {
+      const next = new Set(current);
+      if (next.has(epicId)) {
+        next.delete(epicId);
+      } else {
+        next.add(epicId);
+      }
+      return next;
+    });
+  }
 
   function updateEpic(epicId: string, patch: Partial<Epic>) {
     setEpics((current) =>
@@ -382,6 +420,11 @@ export default function Home() {
   function addEpic() {
     const epic = blankEpic(epics.length + 1);
     setEpics((current) => [...current, epic]);
+    setCollapsedEpicIds((current) => {
+      const next = new Set(current);
+      next.delete(epic.id);
+      return next;
+    });
     setEditingEpicId(epic.id);
   }
 
