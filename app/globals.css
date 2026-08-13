@@ -573,6 +573,8 @@ select {
   min-height: 54px;
   min-width: 1020px;
   padding: 8px 10px;
+  position: relative;
+  transition: box-shadow 0.16s ease, opacity 0.16s ease, transform 0.16s ease;
 }
 
 .task-cell-pinned {
@@ -599,8 +601,47 @@ select {
 
 .task-item-dragging {
   border-color: #0d5bff;
-  box-shadow: 0 8px 20px rgba(13, 91, 255, 0.12);
-  opacity: 0.72;
+  box-shadow: 0 22px 44px rgba(13, 91, 255, 0.22);
+  opacity: 0.9;
+  transform: scale(1.015);
+  z-index: 20;
+}
+
+.task-item-dragging::after {
+  background: rgba(13, 91, 255, 0.06);
+  border: 1px solid rgba(13, 91, 255, 0.28);
+  border-radius: 8px;
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+}
+
+.task-item-drop-before::before,
+.task-item-drop-after::before {
+  background: #0d5bff;
+  border-radius: 999px;
+  box-shadow: 0 0 0 4px rgba(13, 91, 255, 0.12);
+  content: "";
+  height: 3px;
+  left: 10px;
+  pointer-events: none;
+  position: absolute;
+  right: 10px;
+  z-index: 30;
+}
+
+.task-item-drop-before::before {
+  top: -7px;
+}
+
+.task-item-drop-after::before {
+  bottom: -7px;
+}
+
+.task-item-drop-before,
+.task-item-drop-after {
+  box-shadow: 0 12px 26px rgba(13, 91, 255, 0.12);
 }
 
 .task-drag-handle {
@@ -622,6 +663,11 @@ select {
 
 .task-drag-handle:hover {
   color: #0d5bff;
+}
+
+.task-item-dragging .task-drag-handle {
+  color: #0d5bff;
+  cursor: grabbing;
 }
 
 .task-identity {

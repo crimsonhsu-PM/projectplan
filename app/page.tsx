@@ -536,6 +536,7 @@ export default function Home() {
   const [collapsedEpicIds, setCollapsedEpicIds] = useState<Set<string>>(new Set());
   const [draggingEpicId, setDraggingEpicId] = useState<string | null>(null);
   const [draggingTask, setDraggingTask] = useState<{ epicId: string; taskId: string } | null>(null);
+  const [taskDropTarget, setTaskDropTarget] = useState<{ epicId: string; taskId: string; position: "before" | "after" } | null>(null);
   const [pinnedTaskColumns, setPinnedTaskColumns] = useState<Set<TaskColumnKey>>(() => new Set(["task"]));
   const [hasLoaded, setHasLoaded] = useState(false);
 
@@ -904,7 +905,7 @@ export default function Home() {
     return tasks.map((task, index) => ({ ...task, wbs: `${epicWbs}.${index + 1}` }));
   }
 
-  function reorderTask(epicId: string, sourceTaskId: string, targetTaskId: string) {
+  function reorderTask(epicId: string, sourceTaskId: string, targetTaskId: string, position: "before" | "after" = "before") {
     if (sourceTaskId === targetTaskId) {
       return;
     }
@@ -920,10 +921,25 @@ export default function Home() {
         }
         const nextTasks = [...epic.tasks];
         const [movingTask] = nextTasks.splice(sourceIndex, 1);
-        nextTasks.splice(targetIndex, 0, movingTask);
+        const adjustedTargetIndex = nextTasks.findIndex((task) => task.id === targetTaskId);
+        if (adjustedTargetIndex < 0) {
+          return epic;
+        }
+        const insertIndex = position === "after" ? adjustedTargetIndex + 1 : adjustedTargetIndex;
+        nextTasks.splice(insertIndex, 0, movingTask);
         return normalizeEpic({ ...epic, tasks: renumberTasks(nextTasks, epic.wbs) });
       }),
     );
+  }
+
+  function updateTaskDropTarget(event: React.DragEvent<HTMLElement>, epicId: string, taskId: string) {
+    if (!draggingTask || draggingTask.epicId !== epicId || draggingTask.taskId === taskId) {
+      return;
+    }
+    event.preventDefault();
+    const rect = event.currentTarget.getBoundingClientRect();
+    const position = event.clientY - rect.top > rect.height / 2 ? "after" : "before";
+    setTaskDropTarget({ epicId, taskId, position });
   }
 
   function addEpic() {
@@ -1301,25 +1317,41 @@ export default function Home() {
                                 <span />
                               </div>
                               {epic.tasks.map((task) => {
+                                const isDraggingTask = draggingTask?.taskId === task.id;
+                                const isTaskDropTarget = taskDropTarget?.epicId === epic.id && taskDropTarget.taskId === task.id;
                                 return (
                                   <div
-                                    className={`task-item ${draggingTask?.taskId === task.id ? "task-item-dragging" : ""}`}
+                                    className={`task-item ${isDraggingTask ? "task-item-dragging" : ""} ${
+                                      isTaskDropTarget ? `task-item-drop-${taskDropTarget.position}` : ""
+                                    }`}
                                     key={task.id}
-                                    onDragOver={(event) => event.preventDefault()}
+                                    onDragLeave={(event) => {
+                                      if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                                        setTaskDropTarget((current) =>
+                                          current?.epicId === epic.id && current.taskId === task.id ? null : current,
+                                        );
+                                      }
+                                    }}
+                                    onDragOver={(event) => updateTaskDropTarget(event, epic.id, task.id)}
                                     onDrop={() => {
-                                      if (draggingTask?.epicId === epic.id) {
-                                        reorderTask(epic.id, draggingTask.taskId, task.id);
+                                      if (draggingTask?.epicId === epic.id && taskDropTarget?.taskId === task.id) {
+                                        reorderTask(epic.id, draggingTask.taskId, task.id, taskDropTarget.position);
                                       }
                                       setDraggingTask(null);
+                                      setTaskDropTarget(null);
                                     }}
                                   >
                                     <button
                                       aria-label={`拖曳 ${task.title} 調整順序`}
                                       className="task-drag-handle"
                                       draggable
-                                      onDragEnd={() => setDraggingTask(null)}
+                                      onDragEnd={() => {
+                                        setDraggingTask(null);
+                                        setTaskDropTarget(null);
+                                      }}
                                       onDragStart={(event) => {
                                         event.dataTransfer.effectAllowed = "move";
+                                        event.dataTransfer.setData("text/plain", task.id);
                                         setDraggingTask({ epicId: epic.id, taskId: task.id });
                                       }}
                                       type="button"
