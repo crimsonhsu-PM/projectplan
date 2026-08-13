@@ -1,19 +1,20 @@
 @import "tailwindcss";
 
 :root {
-  --ink: #172033;
-  --muted: #69758a;
-  --line: #d9dee8;
-  --sheet-blue: #234b8f;
-  --sheet-blue-2: #195bc4;
+  --ink: #252b3a;
+  --muted: #929aac;
+  --line: #edf0f7;
+  --sheet-blue: #0d5bff;
+  --sheet-blue-2: #0a49d8;
   --sheet-orange: #ff9d15;
   --task-green: #b9dba9;
   --epic-fill: #fff1c7;
   --band: #d8cfe9;
-  --bar: #3f8ac7;
-  --bar-deep: #1f5f9f;
-  --surface: #f4f6fa;
+  --bar: #54b8ff;
+  --bar-deep: #0d5bff;
+  --surface: #f6f7fb;
   --white: #ffffff;
+  --shadow: 0 12px 32px rgba(29, 36, 58, 0.06);
 }
 
 * {
@@ -49,7 +50,8 @@ select {
 
 .backend-sider {
   background: #ffffff !important;
-  border-right: 1px solid var(--line);
+  border-right: 0;
+  box-shadow: 8px 0 28px rgba(30, 40, 70, 0.03);
   position: sticky;
   top: 0;
   height: 100vh;
@@ -57,31 +59,97 @@ select {
 
 .backend-brand {
   align-items: center;
-  border-bottom: 1px solid var(--line);
-  color: #1f2a44;
+  border-bottom: 0;
+  color: #172033;
   display: flex;
-  font-size: 14px;
+  font-size: 18px;
+  font-weight: 800;
+  gap: 10px;
+  height: 92px;
+  padding: 0 28px;
+}
+
+.backend-brand .anticon {
+  color: #0d5bff;
+  font-size: 24px;
+}
+
+.sidebar-action {
+  padding: 22px 28px 28px;
+}
+
+.sidebar-action .ant-btn {
+  border-radius: 9px;
+  box-shadow: 0 12px 24px rgba(13, 91, 255, 0.2);
   font-weight: 700;
-  gap: 8px;
-  height: 58px;
-  padding: 0 18px;
+  height: 56px;
+  width: 100%;
+}
+
+.backend-sider .ant-menu {
+  border-inline-end: 0 !important;
+  padding: 10px 18px;
+}
+
+.backend-sider .ant-menu-item {
+  border-radius: 8px;
+  color: #9aa2b6;
+  font-size: 15px;
+  height: 48px;
+  margin: 8px 0;
+}
+
+.backend-sider .ant-menu-item .anticon {
+  font-size: 18px;
+}
+
+.backend-sider .ant-menu-item-selected {
+  background: #eef4ff !important;
+  color: #0d5bff !important;
+  font-weight: 700;
 }
 
 .backend-content {
   min-width: 0;
-  padding: 18px;
+  padding: 0 42px 42px;
+}
+
+.topbar {
+  align-items: center;
+  background: #ffffff;
+  display: flex;
+  height: 92px;
+  justify-content: space-between;
+  margin: 0 -42px 38px;
+  padding: 0 42px;
+}
+
+.topbar .ant-btn {
+  color: #9aa2b6;
+}
+
+.topbar-icon {
+  color: #a4abbc;
+  font-size: 22px;
+}
+
+.topbar-user {
+  color: #8d95a8;
+  font-weight: 700;
 }
 
 .project-header {
   align-items: end;
   background: var(--white);
-  border: 1px solid var(--line);
+  border: 0;
+  border-radius: 8px;
+  box-shadow: var(--shadow);
   display: grid;
-  gap: 12px;
+  gap: 18px;
   grid-template-columns: minmax(220px, 1fr) 180px 160px 80px auto;
-  margin: 0 auto 14px;
+  margin: 0 auto 26px;
   max-width: 1680px;
-  padding: 14px;
+  padding: 22px;
 }
 
 .project-title span,
@@ -97,6 +165,11 @@ select {
   margin: 4px 0 0;
 }
 
+.project-header .ant-btn,
+.settings-card .ant-btn {
+  border-radius: 8px;
+}
+
 .settings-page {
   margin: 0 auto;
   max-width: 1680px;
@@ -105,11 +178,13 @@ select {
 .settings-header {
   align-items: center;
   background: var(--white);
-  border: 1px solid var(--line);
+  border: 0;
+  border-radius: 8px;
+  box-shadow: var(--shadow);
   display: flex;
   justify-content: space-between;
-  margin-bottom: 14px;
-  padding: 18px;
+  margin-bottom: 26px;
+  padding: 24px 26px;
 }
 
 .settings-header .ant-typography {
@@ -118,12 +193,14 @@ select {
 
 .settings-grid {
   display: grid;
-  gap: 14px;
+  gap: 22px;
   grid-template-columns: repeat(2, minmax(280px, 1fr));
 }
 
 .settings-card {
-  border-radius: 6px;
+  border: 0;
+  border-radius: 8px;
+  box-shadow: var(--shadow);
 }
 
 .settings-card .ant-card-head {
@@ -132,7 +209,7 @@ select {
 
 .settings-list {
   display: grid;
-  gap: 8px;
+  gap: 10px;
 }
 
 .settings-row {
@@ -164,7 +241,9 @@ select {
 
 .sheet {
   background: var(--white);
-  border: 1px solid var(--line);
+  border: 0;
+  border-radius: 8px;
+  box-shadow: var(--shadow);
   display: grid;
   grid-template-columns: var(--table-width, 1100px) 1fr;
   margin: 0 auto;
@@ -173,7 +252,7 @@ select {
 }
 
 .left-pane {
-  border-right: 4px solid #c4c7cc;
+  border-right: 1px solid #e3e8f3;
   min-width: var(--table-width, 1100px);
 }
 
@@ -190,9 +269,9 @@ select {
 }
 
 .planner-table .ant-table-thead > tr > th {
-  background: #f0f5ff;
-  border-color: #c7d7f4 !important;
-  color: #1f2a44;
+  background: #f7f9fd;
+  border-color: #edf0f7 !important;
+  color: #33394a;
   font-size: 13px;
   font-weight: 700;
   height: 64px;
@@ -205,7 +284,7 @@ select {
 }
 
 .planner-table .ant-table-tbody > tr > td {
-  border-color: #d4ddea !important;
+  border-color: #edf0f7 !important;
   height: 36px;
   padding: 0 6px;
   vertical-align: middle;
@@ -213,23 +292,23 @@ select {
 }
 
 .planner-table .ant-table-tbody > tr.epic-row > td {
-  background: #fff7d6;
+  background: #fffaf0;
   font-weight: 700;
 }
 
 .planner-table .ant-table-tbody > tr.section-row > td {
-  background: #f4f0ff;
+  background: #f8f6ff;
   color: #526070;
   font-size: 13px;
   height: 20px;
 }
 
 .planner-table .ant-table-tbody > tr.task-row > td:nth-child(2) {
-  background: #e4f4dd;
+  background: #eef9eb;
 }
 
 .planner-table .ant-table-tbody > tr:hover > td {
-  background: #eef6ff;
+  background: #f8fbff;
 }
 
 .planner-table .description-cell .ant-btn {
@@ -416,7 +495,7 @@ select {
 }
 
 .task-toolbar {
-  border-top: 1px solid var(--line);
+  border-top: 1px solid #edf0f7;
   padding-top: 16px;
 }
 
@@ -428,16 +507,37 @@ select {
 
 .task-card {
   align-items: center;
-  background: #f8fafc;
-  border: 1px solid var(--line);
+  background: #f8f9fd;
+  border: 1px solid #edf0f7;
+  border-radius: 8px;
   display: grid;
   gap: 8px;
   grid-template-columns: minmax(220px, 1.6fr) repeat(2, minmax(110px, 0.7fr)) repeat(2, 136px) 72px minmax(120px, 0.8fr) 72px;
-  padding: 8px;
+  padding: 10px;
 }
 
 .task-title {
   font-weight: 700;
+}
+
+.epic-modal .ant-modal-content {
+  border-radius: 10px;
+  box-shadow: 0 24px 70px rgba(29, 36, 58, 0.18);
+}
+
+.ant-input,
+.ant-picker,
+.ant-select-selector,
+.ant-input-number {
+  border-color: #e4e8f2 !important;
+  border-radius: 7px !important;
+}
+
+.ant-input:hover,
+.ant-picker:hover,
+.ant-select:hover .ant-select-selector,
+.ant-input-number:hover {
+  border-color: #b8cdfc !important;
 }
 
 @media (max-width: 900px) {
@@ -455,6 +555,12 @@ select {
 
   .backend-content {
     padding: 10px;
+  }
+
+  .topbar {
+    height: auto;
+    margin: 0 -10px 16px;
+    padding: 14px 10px;
   }
 
   .project-header {

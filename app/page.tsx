@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  Avatar,
   Button,
   Card,
   ConfigProvider,
@@ -20,14 +21,17 @@ import {
 import type { TableProps } from "antd";
 import {
   CalendarOutlined,
+  BellOutlined,
   DeleteOutlined,
   DownOutlined,
   EditOutlined,
+  MenuOutlined,
   PlusOutlined,
   ProjectOutlined,
   RightOutlined,
   SettingOutlined,
   TableOutlined,
+  UserOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 
@@ -700,8 +704,8 @@ export default function Home() {
     <ConfigProvider
       theme={{
         token: {
-          borderRadius: 6,
-          colorPrimary: "#1f5f9f",
+          borderRadius: 8,
+          colorPrimary: "#0d5bff",
           fontFamily: 'Arial, "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif',
         },
         components: {
@@ -719,7 +723,12 @@ export default function Home() {
           <Layout.Sider className="backend-sider" width={216}>
             <div className="backend-brand">
               <ProjectOutlined />
-              <span>RSG Project plan</span>
+              <span>RSG project</span>
+            </div>
+            <div className="sidebar-action">
+              <Button type="primary" icon={<PlusOutlined />} onClick={addEpic}>
+                新增 EPIC
+              </Button>
             </div>
             <Menu
               mode="inline"
@@ -732,6 +741,17 @@ export default function Home() {
             />
           </Layout.Sider>
           <Layout.Content className="backend-content">
+            <header className="topbar">
+              <Space size={12}>
+                <Button type="text" icon={<MenuOutlined />} />
+                <Typography.Text type="secondary">隱藏菜單</Typography.Text>
+              </Space>
+              <Space size={18}>
+                <BellOutlined className="topbar-icon" />
+                <Avatar size={38} icon={<UserOutlined />} />
+                <Typography.Text className="topbar-user">瑪琳·索索</Typography.Text>
+              </Space>
+            </header>
             {activePage === "planner" ? (
               <>
                 <section className="project-header" aria-label="專案資訊">
