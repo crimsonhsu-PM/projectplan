@@ -783,18 +783,6 @@ select {
   font-weight: 700;
 }
 
-.task-title-cell {
-  align-items: center;
-  display: grid;
-  gap: 6px;
-  grid-template-columns: minmax(0, 1fr) 28px;
-  min-width: 0;
-}
-
-.task-title-cell .ant-btn {
-  border-radius: 6px;
-}
-
 .task-field .ant-select-selector {
   background: #ffffff !important;
   padding-inline: 10px 22px !important;

@@ -1134,9 +1134,9 @@ export default function Home() {
 
   function getTaskGridStyle(): React.CSSProperties {
     const columnWidths = visibleTaskColumnDefinitions.map((column) => `${column.width}px`).join(" ");
-    const minWidth = visibleTaskColumnDefinitions.reduce((total, column) => total + column.width, 28 + 8 * visibleTaskColumnDefinitions.length);
+    const minWidth = visibleTaskColumnDefinitions.reduce((total, column) => total + column.width, 28 + 32 + 8 * (visibleTaskColumnDefinitions.length + 1));
     return {
-      gridTemplateColumns: `28px ${columnWidths}`,
+      gridTemplateColumns: `28px ${columnWidths} 32px`,
       minWidth,
     };
   }
@@ -1469,6 +1469,7 @@ export default function Home() {
                                     {column.label}
                                   </span>
                                 ))}
+                                <span />
                               </div>
                               {epic.tasks.map((task) => {
                                 const isDraggingTask = draggingTask?.taskId === task.id;
@@ -1519,15 +1520,12 @@ export default function Home() {
                                       </span>
                                     ) : null}
                                     {visibleTaskColumns.has("task") ? (
-                                      <div className="task-title-cell">
-                                        <Input
-                                          className="task-title-input"
-                                          value={task.title}
-                                          variant="borderless"
-                                          onChange={(event) => updateTask(epic.id, task.id, { title: event.target.value })}
-                                        />
-                                        <Button danger type="text" icon={<DeleteOutlined />} onClick={() => deleteTask(epic.id, task.id)} aria-label={`刪除 ${task.title}`} />
-                                      </div>
+                                      <Input
+                                        className="task-title-input"
+                                        value={task.title}
+                                        variant="borderless"
+                                        onChange={(event) => updateTask(epic.id, task.id, { title: event.target.value })}
+                                      />
                                     ) : null}
                                     {visibleTaskColumns.has("department") ? (
                                       <Select
@@ -1583,9 +1581,7 @@ export default function Home() {
                                         {getWorkdayDuration(task.startDate, task.finishDate, holidayDates)}
                                       </span>
                                     ) : null}
-                                    {visibleTaskColumns.has("task") ? null : (
-                                      <Button danger type="text" icon={<DeleteOutlined />} onClick={() => deleteTask(epic.id, task.id)} aria-label={`刪除 ${task.title}`} />
-                                    )}
+                                    <Button danger type="text" icon={<DeleteOutlined />} onClick={() => deleteTask(epic.id, task.id)} aria-label={`刪除 ${task.title}`} />
                                   </div>
                                 );
                               })}
