@@ -585,25 +585,40 @@ select {
 }
 
 .task-cell-pinned {
+  border-radius: 8px;
   position: sticky !important;
   z-index: 30;
 }
 
 .task-columns-header .task-cell-pinned {
-  background: #ffffff;
-  box-shadow: 14px 0 22px rgba(30, 40, 70, 0.1);
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.98), 14px 0 22px rgba(30, 40, 70, 0.12);
+  min-height: 28px;
+  padding-inline: 6px;
   z-index: 40;
 }
 
 .task-item .task-cell-pinned {
-  background: #f8f9fd !important;
-  box-shadow: 14px 0 22px rgba(30, 40, 70, 0.1);
+  background: #ffffff !important;
+  box-shadow: 0 0 0 7px rgba(255, 255, 255, 0.98), 14px 0 24px rgba(30, 40, 70, 0.14);
 }
 
 .task-item .ant-select.task-cell-pinned .ant-select-selector,
 .task-item .ant-picker.task-cell-pinned,
 .task-item .ant-input.task-cell-pinned {
   background: #ffffff !important;
+}
+
+.task-item .ant-select.task-cell-pinned {
+  background: transparent !important;
+}
+
+.task-item .task-wbs.task-cell-pinned,
+.task-item .task-workdays.task-cell-pinned {
+  align-items: center;
+  display: flex;
+  min-height: 36px;
+  padding-inline: 8px;
 }
 
 .task-item-dragging {
