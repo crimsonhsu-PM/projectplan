@@ -924,22 +924,12 @@ export default function Home() {
                       inputReadOnly
                     />
                   </Field>
-                  <Field label="WK">
-                    <Input value={project.wk} onChange={(event) => setProject({ ...project, wk: event.target.value })} />
-                  </Field>
                   <Button type="primary" icon={<PlusOutlined />} onClick={addEpic}>
                     新增 EPIC
                   </Button>
                 </section>
 
                 <section className="project-board" aria-label="Epic 與 Task 專案列表">
-                  <div className="board-toolbar">
-                    <div>
-                      <Typography.Title level={4}>Epic 工作列表</Typography.Title>
-                      <Typography.Text type="secondary">以卡片管理 Epic、Task 與排程區間。</Typography.Text>
-                    </div>
-                  </div>
-
                   <div className="epic-list">
                     {epics.map((epic) => {
                       const isCollapsed = collapsedEpicIds.has(epic.id);

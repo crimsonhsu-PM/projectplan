@@ -138,7 +138,7 @@ select {
   box-shadow: var(--shadow);
   display: grid;
   gap: 18px;
-  grid-template-columns: minmax(280px, 1fr) 220px 190px 100px 136px;
+  grid-template-columns: minmax(280px, 1fr) 220px 190px 136px;
   margin: 0 auto 26px;
   max-width: 1680px;
   padding: 22px;
