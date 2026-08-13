@@ -1244,6 +1244,10 @@ export default function Home() {
                               <Button type="link" className="epic-title-button" icon={<EditOutlined />} onClick={() => setEditingEpicId(epic.id)}>
                                 {epic.title}
                               </Button>
+                              <div className="epic-title-progress" aria-label={`完成度 ${epic.progress}%`}>
+                                <span>完成度</span>
+                                <Progress percent={epic.progress} size="small" />
+                              </div>
                               <Button danger type="text" icon={<DeleteOutlined />} onClick={() => deleteEpic(epic.id)} aria-label={`刪除 ${epic.title}`} />
                             </div>
 
