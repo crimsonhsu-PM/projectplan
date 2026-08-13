@@ -142,7 +142,7 @@ select {
   box-shadow: var(--shadow);
   display: grid;
   gap: 18px;
-  grid-template-columns: minmax(280px, 1fr) 220px 190px 160px 150px;
+  grid-template-columns: minmax(280px, 1fr) 220px 190px 132px 132px 132px;
   margin: 0 0 26px;
   min-width: 1450px;
   padding: 22px;
@@ -173,6 +173,12 @@ select {
 .project-header .ant-btn,
 .settings-card .ant-btn {
   border-radius: 8px;
+}
+
+.project-header > .ant-btn {
+  height: 40px;
+  justify-self: stretch;
+  padding-inline: 12px;
 }
 
 .import-modal {
@@ -1240,9 +1246,13 @@ select {
     width: auto;
   }
 
-  .project-title,
-  .project-header > .ant-btn {
+  .project-title {
     grid-column: 1 / -1;
+  }
+
+  .project-header > .ant-btn {
+    justify-self: start;
+    min-width: 132px;
   }
 
   .epic-card {
