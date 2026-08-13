@@ -551,6 +551,7 @@ select {
   color: #33394a;
   display: flex;
   font-weight: 800;
+  height: 32px;
   justify-content: space-between;
 }
 
@@ -559,12 +560,14 @@ select {
 }
 
 .task-columns-header {
+  align-items: center;
   color: #8d95a8;
   display: grid;
   font-size: 12px;
   font-weight: 800;
   gap: 8px;
   grid-template-columns: 28px 48px 220px 92px 108px 108px 128px 128px 72px 32px;
+  height: 28px;
   min-width: 1020px;
   padding: 0 10px;
 }
