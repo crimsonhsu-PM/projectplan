@@ -531,9 +531,35 @@ select {
   font-size: 12px;
   font-weight: 800;
   gap: 8px;
-  grid-template-columns: 28px 48px minmax(140px, 1fr) 92px 108px 108px 128px 128px 62px 32px;
-  min-width: 980px;
+  grid-template-columns: 28px 48px 220px 92px 108px 108px 128px 128px 72px 32px;
+  min-width: 1020px;
   padding: 0 10px;
+}
+
+.task-header-cell {
+  align-items: center;
+  background: #ffffff;
+  display: inline-flex;
+  gap: 5px;
+  min-width: 0;
+}
+
+.task-pin-button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: #bdc4d0;
+  cursor: pointer;
+  display: inline-flex;
+  height: 20px;
+  justify-content: center;
+  padding: 0;
+  width: 18px;
+}
+
+.task-pin-button:hover,
+.task-pin-button-active {
+  color: #0d5bff;
 }
 
 .task-item {
@@ -543,10 +569,32 @@ select {
   border-radius: 8px;
   display: grid;
   gap: 8px;
-  grid-template-columns: 28px 48px minmax(140px, 1fr) 92px 108px 108px 128px 128px 62px 32px;
+  grid-template-columns: 28px 48px 220px 92px 108px 108px 128px 128px 72px 32px;
   min-height: 54px;
-  min-width: 980px;
+  min-width: 1020px;
   padding: 8px 10px;
+}
+
+.task-cell-pinned {
+  position: sticky !important;
+  z-index: 3;
+}
+
+.task-columns-header .task-cell-pinned {
+  background: #ffffff;
+  box-shadow: 10px 0 16px rgba(30, 40, 70, 0.06);
+  z-index: 5;
+}
+
+.task-item .task-cell-pinned {
+  background: #f8f9fd !important;
+  box-shadow: 10px 0 16px rgba(30, 40, 70, 0.06);
+}
+
+.task-item .ant-select.task-cell-pinned .ant-select-selector,
+.task-item .ant-picker.task-cell-pinned,
+.task-item .ant-input.task-cell-pinned {
+  background: #ffffff !important;
 }
 
 .task-item-dragging {
@@ -985,6 +1033,11 @@ select {
   .task-columns-header,
   .holiday-row {
     grid-template-columns: 1fr;
+  }
+
+  .task-cell-pinned {
+    left: auto !important;
+    position: static !important;
   }
 
   .sheet {

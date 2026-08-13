@@ -29,6 +29,7 @@ import {
   HolderOutlined,
   PlusOutlined,
   ProjectOutlined,
+  PushpinOutlined,
   RightOutlined,
   SettingOutlined,
   TableOutlined,
@@ -94,7 +95,21 @@ type PlannerTableRow = {
 };
 
 const STORAGE_KEY = "rsg-project-plan-v2";
+const PINNED_TASK_COLUMNS_KEY = "rsg-project-plan-pinned-task-columns-v1";
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+const taskColumnDefinitions = [
+  { key: "wbs", label: "WBS", width: 48 },
+  { key: "task", label: "Task", width: 220 },
+  { key: "department", label: "部門", width: 92 },
+  { key: "status", label: "狀態", width: 108 },
+  { key: "agent", label: "Agent", width: 108 },
+  { key: "start", label: "Start", width: 128 },
+  { key: "finish", label: "Finish", width: 128 },
+  { key: "workdays", label: "工作天數", width: 72 },
+] as const;
+
+type TaskColumnKey = (typeof taskColumnDefinitions)[number]["key"];
 
 const defaultSettings: AppSettings = {
   departments: ["企劃", "前端", "後端", "QA", "PM"],
@@ -521,6 +536,7 @@ export default function Home() {
   const [collapsedEpicIds, setCollapsedEpicIds] = useState<Set<string>>(new Set());
   const [draggingEpicId, setDraggingEpicId] = useState<string | null>(null);
   const [draggingTask, setDraggingTask] = useState<{ epicId: string; taskId: string } | null>(null);
+  const [pinnedTaskColumns, setPinnedTaskColumns] = useState<Set<TaskColumnKey>>(() => new Set(["task"]));
   const [hasLoaded, setHasLoaded] = useState(false);
 
   useEffect(() => {
@@ -536,14 +552,27 @@ export default function Home() {
         setSettings(defaultSettings);
       }
     }
+    const savedPinnedColumns = window.localStorage.getItem(PINNED_TASK_COLUMNS_KEY);
+    if (savedPinnedColumns) {
+      try {
+        const parsedPinnedColumns = JSON.parse(savedPinnedColumns) as string[];
+        const validPinnedColumns = parsedPinnedColumns.filter((key): key is TaskColumnKey =>
+          taskColumnDefinitions.some((column) => column.key === key),
+        );
+        setPinnedTaskColumns(new Set(validPinnedColumns));
+      } catch {
+        setPinnedTaskColumns(new Set(["task"]));
+      }
+    }
     setHasLoaded(true);
   }, []);
 
   useEffect(() => {
     if (hasLoaded) {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ project, epics, settings }));
+      window.localStorage.setItem(PINNED_TASK_COLUMNS_KEY, JSON.stringify(Array.from(pinnedTaskColumns)));
     }
-  }, [epics, hasLoaded, project, settings]);
+  }, [epics, hasLoaded, pinnedTaskColumns, project, settings]);
 
   const editingEpic = epics.find((epic) => epic.id === editingEpicId) ?? null;
   const typeLabels = useMemo(() => settingLabels(settings.types), [settings.types]);
@@ -988,6 +1017,31 @@ export default function Home() {
     );
   }
 
+  function togglePinnedTaskColumn(key: TaskColumnKey) {
+    setPinnedTaskColumns((current) => {
+      const next = new Set(current);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }
+
+  function getPinnedTaskColumnStyle(key: TaskColumnKey): React.CSSProperties {
+    if (!pinnedTaskColumns.has(key)) {
+      return {};
+    }
+    const left = taskColumnDefinitions.reduce((offset, column) => {
+      if (column.key === key) {
+        return offset;
+      }
+      return pinnedTaskColumns.has(column.key) ? offset + column.width + 8 : offset;
+    }, 10);
+    return { left };
+  }
+
   function getOffset(date: string) {
     return Math.max(
       0,
@@ -1224,14 +1278,26 @@ export default function Home() {
                               </div>
                               <div className="task-columns-header">
                                 <span />
-                                <span>WBS</span>
-                                <span>Task</span>
-                                <span>部門</span>
-                                <span>狀態</span>
-                                <span>Agent</span>
-                                <span>Start</span>
-                                <span>Finish</span>
-                                <span>工作天數</span>
+                                {taskColumnDefinitions.map((column) => {
+                                  const isPinned = pinnedTaskColumns.has(column.key);
+                                  return (
+                                    <span
+                                      className={`task-header-cell ${isPinned ? "task-cell-pinned" : ""}`}
+                                      key={column.key}
+                                      style={getPinnedTaskColumnStyle(column.key)}
+                                    >
+                                      <button
+                                        aria-label={`${isPinned ? "取消釘選" : "釘選"} ${column.label} 欄位`}
+                                        className={`task-pin-button ${isPinned ? "task-pin-button-active" : ""}`}
+                                        onClick={() => togglePinnedTaskColumn(column.key)}
+                                        type="button"
+                                      >
+                                        <PushpinOutlined />
+                                      </button>
+                                      {column.label}
+                                    </span>
+                                  );
+                                })}
                                 <span />
                               </div>
                               {epic.tasks.map((task) => {
@@ -1260,49 +1326,69 @@ export default function Home() {
                                     >
                                       <HolderOutlined />
                                     </button>
-                                    <span className="task-wbs">{task.wbs}</span>
+                                    <span
+                                      className={`task-wbs ${pinnedTaskColumns.has("wbs") ? "task-cell-pinned" : ""}`}
+                                      style={getPinnedTaskColumnStyle("wbs")}
+                                    >
+                                      {task.wbs}
+                                    </span>
                                     <Input
-                                      className="task-title-input"
+                                      className={`task-title-input ${pinnedTaskColumns.has("task") ? "task-cell-pinned" : ""}`}
+                                      style={getPinnedTaskColumnStyle("task")}
                                       value={task.title}
                                       variant="borderless"
                                       onChange={(event) => updateTask(epic.id, task.id, { title: event.target.value })}
                                     />
                                     <Select
-                                      className="task-field"
+                                      className={`task-field ${pinnedTaskColumns.has("department") ? "task-cell-pinned" : ""}`}
                                       options={departmentSelectOptions}
+                                      style={getPinnedTaskColumnStyle("department")}
                                       value={task.department}
                                       onChange={(value) => updateTask(epic.id, task.id, { department: value })}
                                     />
                                     <Select
-                                      className="task-field colored-select"
+                                      className={`task-field colored-select ${pinnedTaskColumns.has("status") ? "task-cell-pinned" : ""}`}
                                       options={statusSelectOptions}
-                                      style={{ "--setting-color": optionColor(settings.statuses, task.type) } as React.CSSProperties}
+                                      style={
+                                        {
+                                          ...getPinnedTaskColumnStyle("status"),
+                                          "--setting-color": optionColor(settings.statuses, task.type),
+                                        } as React.CSSProperties
+                                      }
                                       value={task.type}
                                       onChange={(value) => updateTask(epic.id, task.id, { type: value })}
                                     />
                                     <Select
-                                      className="task-field"
+                                      className={`task-field ${pinnedTaskColumns.has("agent") ? "task-cell-pinned" : ""}`}
                                       options={assigneeSelectOptions}
+                                      style={getPinnedTaskColumnStyle("agent")}
                                       value={task.assignee}
                                       onChange={(value) => updateTask(epic.id, task.id, { assignee: value })}
                                     />
                                     <DatePicker
                                       allowClear={false}
-                                      className="task-date-field"
+                                      className={`task-date-field ${pinnedTaskColumns.has("start") ? "task-cell-pinned" : ""}`}
                                       format="YYYY-MM-DD"
                                       inputReadOnly
+                                      style={getPinnedTaskColumnStyle("start")}
                                       value={dayjs(task.startDate)}
                                       onChange={(date) => updateTask(epic.id, task.id, { startDate: date ? date.format("YYYY-MM-DD") : task.startDate })}
                                     />
                                     <DatePicker
                                       allowClear={false}
-                                      className="task-date-field"
+                                      className={`task-date-field ${pinnedTaskColumns.has("finish") ? "task-cell-pinned" : ""}`}
                                       format="YYYY-MM-DD"
                                       inputReadOnly
+                                      style={getPinnedTaskColumnStyle("finish")}
                                       value={dayjs(task.finishDate)}
                                       onChange={(date) => updateTask(epic.id, task.id, { finishDate: date ? date.format("YYYY-MM-DD") : task.finishDate })}
                                     />
-                                    <span className="task-workdays">{getWorkdayDuration(task.startDate, task.finishDate, holidayDates)}</span>
+                                    <span
+                                      className={`task-workdays ${pinnedTaskColumns.has("workdays") ? "task-cell-pinned" : ""}`}
+                                      style={getPinnedTaskColumnStyle("workdays")}
+                                    >
+                                      {getWorkdayDuration(task.startDate, task.finishDate, holidayDates)}
+                                    </span>
                                     <Button danger type="text" icon={<DeleteOutlined />} onClick={() => deleteTask(epic.id, task.id)} aria-label={`刪除 ${task.title}`} />
                                   </div>
                                 );
