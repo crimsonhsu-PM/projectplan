@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Avatar,
   Button,
@@ -271,6 +271,7 @@ function getDateRange(epics: Epic[]) {
 function getGanttRange(projectStartDate: string, epics: Epic[]) {
   const parsedStart = new Date(`${projectStartDate}T00:00:00`);
   const start = Number.isNaN(parsedStart.getTime()) ? new Date() : parsedStart;
+  const requiredEnd = new Date("2026-12-31T00:00:00");
   const finishDates = epics.flatMap((epic) => [
     epic.finishDate,
     ...epic.tasks.map((task) => task.finishDate),
@@ -280,14 +281,12 @@ function getGanttRange(projectStartDate: string, epics: Epic[]) {
     .filter((date) => !Number.isNaN(date.getTime()));
   const latestFinish = validFinishDates.length
     ? new Date(Math.max(...validFinishDates.map((date) => date.getTime())))
-    : addDays(start, 27);
-  const minimumEnd = addDays(start, 27);
+    : requiredEnd;
+  const minimumEnd = requiredEnd > addDays(start, 27) ? requiredEnd : addDays(start, 27);
   const rawEnd = latestFinish > minimumEnd ? latestFinish : minimumEnd;
-  const dayCount = Math.max(28, Math.round((rawEnd.getTime() - start.getTime()) / DAY_MS) + 1);
-  const paddedDayCount = Math.ceil(dayCount / 7) * 7;
   return {
     start,
-    end: addDays(start, paddedDayCount - 1),
+    end: rawEnd,
   };
 }
 
@@ -549,6 +548,7 @@ export default function Home() {
   const [taskDropTarget, setTaskDropTarget] = useState<{ epicId: string; taskId: string; position: "before" | "after" } | null>(null);
   const [pinnedTaskColumns, setPinnedTaskColumns] = useState<Set<TaskColumnKey>>(() => new Set(["task"]));
   const [hasLoaded, setHasLoaded] = useState(false);
+  const syncingGanttScrollRef = useRef(false);
 
   useEffect(() => {
     const saved = window.localStorage.getItem(STORAGE_KEY);
@@ -1076,6 +1076,21 @@ export default function Home() {
     );
   }
 
+  function syncGanttScroll(epicId: string, source: HTMLDivElement) {
+    if (syncingGanttScrollRef.current) {
+      return;
+    }
+    syncingGanttScrollRef.current = true;
+    document.querySelectorAll<HTMLDivElement>(`[data-gantt-group="${epicId}"]`).forEach((panel) => {
+      if (panel !== source) {
+        panel.scrollLeft = source.scrollLeft;
+      }
+    });
+    window.requestAnimationFrame(() => {
+      syncingGanttScrollRef.current = false;
+    });
+  }
+
   function renderGanttRow(item: Task, rowClassName = "") {
     const itemStart = new Date(`${item.startDate}T00:00:00`);
     const itemFinish = new Date(`${item.finishDate}T00:00:00`);
@@ -1270,6 +1285,8 @@ export default function Home() {
 
                           <div
                             className="epic-gantt-panel"
+                            data-gantt-group={epic.id}
+                            onScroll={(event) => syncGanttScroll(epic.id, event.currentTarget)}
                             style={
                               {
                                 "--gantt-days": days.length,
@@ -1444,6 +1461,8 @@ export default function Home() {
                             </div>
                             <div
                               className="task-gantt-panel"
+                              data-gantt-group={epic.id}
+                              onScroll={(event) => syncGanttScroll(epic.id, event.currentTarget)}
                               style={
                                 {
                                   "--gantt-days": days.length,
