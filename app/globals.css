@@ -433,7 +433,7 @@ select {
   min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 10px 12px;
+  padding: 0 12px;
   position: relative;
   z-index: 2;
 }
@@ -520,7 +520,20 @@ select {
 
 .gantt-board-row.epic-gantt-row {
   background-color: #fffaf0;
-  min-height: 54px;
+  min-height: 36px;
+}
+
+.epic-gantt-panel .gantt-week-header span {
+  min-height: 26px;
+}
+
+.epic-gantt-panel .gantt-week-header small {
+  font-size: 9px;
+}
+
+.epic-gantt-panel .gantt-date-header span,
+.epic-gantt-panel .gantt-weekday-header span {
+  min-height: 18px;
 }
 
 .task-gantt-offset {
