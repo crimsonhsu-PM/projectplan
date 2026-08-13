@@ -97,8 +97,8 @@ type PlannerTableRow = {
 const STORAGE_KEY = "rsg-project-plan-v2";
 const PINNED_TASK_COLUMNS_KEY = "rsg-project-plan-pinned-task-columns-v1";
 const EPIC_MAIN_WIDTH_KEY = "rsg-project-plan-epic-main-width-v1";
-const MIN_EPIC_MAIN_WIDTH = 520;
-const MAX_EPIC_MAIN_WIDTH = 980;
+const MIN_EPIC_MAIN_WIDTH = 760;
+const MAX_EPIC_MAIN_WIDTH = 1100;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const taskColumnDefinitions = [
@@ -487,14 +487,6 @@ function isCompletedTask(task: Task) {
   return value === "done" || task.type.trim() === "完成";
 }
 
-function getProjectProgress(epics: Epic[]) {
-  const tasks = epics.flatMap((epic) => epic.tasks);
-  if (!tasks.length) {
-    return 0;
-  }
-  return Math.round((tasks.filter(isCompletedTask).length / tasks.length) * 100);
-}
-
 function normalizeEpic(epic: Epic): Epic {
   const tasks = epic.tasks.map(normalizeTask);
   return {
@@ -602,7 +594,6 @@ export default function Home() {
   const departmentSelectOptions = useMemo(() => toSelectOptions(settings.departments), [settings.departments]);
   const assigneeSelectOptions = useMemo(() => toSelectOptions(settings.agents), [settings.agents]);
   const holidayDates = useMemo(() => getHolidayDateSet(settings.holidays), [settings.holidays]);
-  const projectProgress = useMemo(() => getProjectProgress(epics), [epics]);
   const tableRows = useMemo<PlannerTableRow[]>(
     () =>
       epics.flatMap((epic) => {
@@ -1214,11 +1205,6 @@ export default function Home() {
                       allowClear={false}
                       inputReadOnly
                     />
-                  </Field>
-                  <Field label="完成度">
-                    <div className="project-progress">
-                      <Progress percent={projectProgress} size="small" />
-                    </div>
                   </Field>
                   <Button type="primary" icon={<PlusOutlined />} onClick={addEpic}>
                     新增 EPIC
