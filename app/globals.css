@@ -637,6 +637,26 @@ select {
   border-radius: 7px;
 }
 
+.task-column-dropdown {
+  background: #ffffff;
+  border: 1px solid #e6ebf3;
+  border-radius: 8px;
+  box-shadow: 0 16px 36px rgba(30, 40, 70, 0.12);
+  display: grid;
+  gap: 10px;
+  min-width: 160px;
+  padding: 12px;
+}
+
+.task-column-dropdown strong {
+  color: #33394a;
+  font-size: 13px;
+}
+
+.task-column-dropdown .ant-checkbox-wrapper {
+  margin-inline-start: 0;
+}
+
 .task-columns-header {
   align-items: center;
   color: #8d95a8;

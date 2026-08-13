@@ -5,9 +5,11 @@ import {
   Avatar,
   Button,
   Card,
+  Checkbox,
   ColorPicker,
   ConfigProvider,
   DatePicker,
+  Dropdown,
   Input,
   Layout,
   Menu,
@@ -96,6 +98,7 @@ type PlannerTableRow = {
 
 const STORAGE_KEY = "rsg-project-plan-v2";
 const PINNED_TASK_COLUMNS_KEY = "rsg-project-plan-pinned-task-columns-v1";
+const VISIBLE_TASK_COLUMNS_KEY = "rsg-project-plan-visible-task-columns-v1";
 const EPIC_MAIN_WIDTH_KEY = "rsg-project-plan-epic-main-width-v1";
 const MIN_EPIC_MAIN_WIDTH = 760;
 const MAX_EPIC_MAIN_WIDTH = 1100;
@@ -542,6 +545,7 @@ export default function Home() {
   const [draggingTask, setDraggingTask] = useState<{ epicId: string; taskId: string } | null>(null);
   const [taskDropTarget, setTaskDropTarget] = useState<{ epicId: string; taskId: string; position: "before" | "after" } | null>(null);
   const [pinnedTaskColumns, setPinnedTaskColumns] = useState<Set<TaskColumnKey>>(() => new Set(["task"]));
+  const [visibleTaskColumns, setVisibleTaskColumns] = useState<Set<TaskColumnKey>>(() => new Set(taskColumnDefinitions.map((column) => column.key)));
   const [epicMainWidth, setEpicMainWidth] = useState(760);
   const [ganttHoverLine, setGanttHoverLine] = useState<{ epicId: string; x: number } | null>(null);
   const [hasLoaded, setHasLoaded] = useState(false);
@@ -572,6 +576,20 @@ export default function Home() {
         setPinnedTaskColumns(new Set(["task"]));
       }
     }
+    const savedVisibleColumns = window.localStorage.getItem(VISIBLE_TASK_COLUMNS_KEY);
+    if (savedVisibleColumns) {
+      try {
+        const parsedVisibleColumns = JSON.parse(savedVisibleColumns) as string[];
+        const validVisibleColumns = parsedVisibleColumns.filter((key): key is TaskColumnKey =>
+          taskColumnDefinitions.some((column) => column.key === key),
+        );
+        if (validVisibleColumns.length) {
+          setVisibleTaskColumns(new Set(validVisibleColumns));
+        }
+      } catch {
+        setVisibleTaskColumns(new Set(taskColumnDefinitions.map((column) => column.key)));
+      }
+    }
     const savedEpicMainWidth = Number(window.localStorage.getItem(EPIC_MAIN_WIDTH_KEY));
     if (Number.isFinite(savedEpicMainWidth)) {
       setEpicMainWidth(Math.min(MAX_EPIC_MAIN_WIDTH, Math.max(MIN_EPIC_MAIN_WIDTH, savedEpicMainWidth)));
@@ -583,9 +601,10 @@ export default function Home() {
     if (hasLoaded) {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ project, epics, settings }));
       window.localStorage.setItem(PINNED_TASK_COLUMNS_KEY, JSON.stringify(Array.from(pinnedTaskColumns)));
+      window.localStorage.setItem(VISIBLE_TASK_COLUMNS_KEY, JSON.stringify(Array.from(visibleTaskColumns)));
       window.localStorage.setItem(EPIC_MAIN_WIDTH_KEY, String(epicMainWidth));
     }
-  }, [epicMainWidth, epics, hasLoaded, pinnedTaskColumns, project, settings]);
+  }, [epicMainWidth, epics, hasLoaded, pinnedTaskColumns, project, settings, visibleTaskColumns]);
 
   const editingEpic = epics.find((epic) => epic.id === editingEpicId) ?? null;
   const typeLabels = useMemo(() => settingLabels(settings.types), [settings.types]);
@@ -595,6 +614,10 @@ export default function Home() {
   const departmentSelectOptions = useMemo(() => toSelectOptions(settings.departments), [settings.departments]);
   const assigneeSelectOptions = useMemo(() => toSelectOptions(settings.agents), [settings.agents]);
   const holidayDates = useMemo(() => getHolidayDateSet(settings.holidays), [settings.holidays]);
+  const visibleTaskColumnDefinitions = useMemo(
+    () => taskColumnDefinitions.filter((column) => visibleTaskColumns.has(column.key)),
+    [visibleTaskColumns],
+  );
   const tableRows = useMemo<PlannerTableRow[]>(
     () =>
       epics.flatMap((epic) => {
@@ -1057,17 +1080,41 @@ export default function Home() {
     });
   }
 
+  function toggleVisibleTaskColumn(key: TaskColumnKey) {
+    setVisibleTaskColumns((current) => {
+      const next = new Set(current);
+      if (next.has(key)) {
+        if (next.size === 1) {
+          return next;
+        }
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }
+
   function getPinnedTaskColumnStyle(key: TaskColumnKey): React.CSSProperties {
-    if (!pinnedTaskColumns.has(key)) {
+    if (!pinnedTaskColumns.has(key) || !visibleTaskColumns.has(key)) {
       return {};
     }
-    const left = taskColumnDefinitions.reduce((offset, column) => {
+    const left = visibleTaskColumnDefinitions.reduce((offset, column) => {
       if (column.key === key) {
         return offset;
       }
       return pinnedTaskColumns.has(column.key) ? offset + column.width + 8 : offset;
     }, 10);
     return { left };
+  }
+
+  function getTaskGridStyle(): React.CSSProperties {
+    const columnWidths = visibleTaskColumnDefinitions.map((column) => `${column.width}px`).join(" ");
+    const minWidth = visibleTaskColumnDefinitions.reduce((total, column) => total + column.width, 28 + 32 + 8 * (visibleTaskColumnDefinitions.length + 1));
+    return {
+      gridTemplateColumns: `28px ${columnWidths} 32px`,
+      minWidth,
+    };
   }
 
   function getOffset(date: string) {
@@ -1362,13 +1409,35 @@ export default function Home() {
                             <div className="task-list">
                               <div className="task-list-header">
                                 <span>Tasks</span>
-                                <Button size="small" icon={<PlusOutlined />} onClick={() => addTask(epic.id)}>
-                                  新增 Task
-                                </Button>
+                                <Space size={8}>
+                                  <Dropdown
+                                    trigger={["click"]}
+                                    dropdownRender={() => (
+                                      <div className="task-column-dropdown">
+                                        <strong>顯示欄位</strong>
+                                        {taskColumnDefinitions.map((column) => (
+                                          <Checkbox
+                                            checked={visibleTaskColumns.has(column.key)}
+                                            disabled={visibleTaskColumns.size === 1 && visibleTaskColumns.has(column.key)}
+                                            key={column.key}
+                                            onChange={() => toggleVisibleTaskColumn(column.key)}
+                                          >
+                                            {column.label}
+                                          </Checkbox>
+                                        ))}
+                                      </div>
+                                    )}
+                                  >
+                                    <Button size="small">欄位</Button>
+                                  </Dropdown>
+                                  <Button size="small" icon={<PlusOutlined />} onClick={() => addTask(epic.id)}>
+                                    新增 Task
+                                  </Button>
+                                </Space>
                               </div>
-                              <div className="task-columns-header">
+                              <div className="task-columns-header" style={getTaskGridStyle()}>
                                 <span />
-                                {taskColumnDefinitions.map((column) => {
+                                {visibleTaskColumnDefinitions.map((column) => {
                                   const isPinned = pinnedTaskColumns.has(column.key);
                                   return (
                                     <span
@@ -1399,6 +1468,7 @@ export default function Home() {
                                       isTaskDropTarget ? `task-item-drop-${taskDropTarget.position}` : ""
                                     }`}
                                     key={task.id}
+                                    style={getTaskGridStyle()}
                                     onDragLeave={(event) => {
                                       if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
                                         setTaskDropTarget((current) =>
@@ -1432,69 +1502,85 @@ export default function Home() {
                                     >
                                       <HolderOutlined />
                                     </button>
-                                    <span
-                                      className={`task-wbs ${pinnedTaskColumns.has("wbs") ? "task-cell-pinned" : ""}`}
-                                      style={getPinnedTaskColumnStyle("wbs")}
-                                    >
-                                      {task.wbs}
-                                    </span>
-                                    <Input
-                                      className={`task-title-input ${pinnedTaskColumns.has("task") ? "task-cell-pinned" : ""}`}
-                                      style={getPinnedTaskColumnStyle("task")}
-                                      value={task.title}
-                                      variant="borderless"
-                                      onChange={(event) => updateTask(epic.id, task.id, { title: event.target.value })}
-                                    />
-                                    <Select
-                                      className={`task-field ${pinnedTaskColumns.has("department") ? "task-cell-pinned" : ""}`}
-                                      options={departmentSelectOptions}
-                                      style={getPinnedTaskColumnStyle("department")}
-                                      value={task.department}
-                                      onChange={(value) => updateTask(epic.id, task.id, { department: value })}
-                                    />
-                                    <Select
-                                      className={`task-field colored-select ${pinnedTaskColumns.has("status") ? "task-cell-pinned" : ""}`}
-                                      options={statusSelectOptions}
-                                      style={
-                                        {
-                                          ...getPinnedTaskColumnStyle("status"),
-                                          "--setting-color": optionColor(settings.statuses, task.type),
-                                        } as React.CSSProperties
-                                      }
-                                      value={task.type}
-                                      onChange={(value) => updateTask(epic.id, task.id, { type: value })}
-                                    />
-                                    <Select
-                                      className={`task-field ${pinnedTaskColumns.has("agent") ? "task-cell-pinned" : ""}`}
-                                      options={assigneeSelectOptions}
-                                      style={getPinnedTaskColumnStyle("agent")}
-                                      value={task.assignee}
-                                      onChange={(value) => updateTask(epic.id, task.id, { assignee: value })}
-                                    />
-                                    <DatePicker
-                                      allowClear={false}
-                                      className={`task-date-field ${pinnedTaskColumns.has("start") ? "task-cell-pinned" : ""}`}
-                                      format="YYYY-MM-DD"
-                                      inputReadOnly
-                                      style={getPinnedTaskColumnStyle("start")}
-                                      value={dayjs(task.startDate)}
-                                      onChange={(date) => updateTask(epic.id, task.id, { startDate: date ? date.format("YYYY-MM-DD") : task.startDate })}
-                                    />
-                                    <DatePicker
-                                      allowClear={false}
-                                      className={`task-date-field ${pinnedTaskColumns.has("finish") ? "task-cell-pinned" : ""}`}
-                                      format="YYYY-MM-DD"
-                                      inputReadOnly
-                                      style={getPinnedTaskColumnStyle("finish")}
-                                      value={dayjs(task.finishDate)}
-                                      onChange={(date) => updateTask(epic.id, task.id, { finishDate: date ? date.format("YYYY-MM-DD") : task.finishDate })}
-                                    />
-                                    <span
-                                      className={`task-workdays ${pinnedTaskColumns.has("workdays") ? "task-cell-pinned" : ""}`}
-                                      style={getPinnedTaskColumnStyle("workdays")}
-                                    >
-                                      {getWorkdayDuration(task.startDate, task.finishDate, holidayDates)}
-                                    </span>
+                                    {visibleTaskColumns.has("wbs") ? (
+                                      <span
+                                        className={`task-wbs ${pinnedTaskColumns.has("wbs") ? "task-cell-pinned" : ""}`}
+                                        style={getPinnedTaskColumnStyle("wbs")}
+                                      >
+                                        {task.wbs}
+                                      </span>
+                                    ) : null}
+                                    {visibleTaskColumns.has("task") ? (
+                                      <Input
+                                        className={`task-title-input ${pinnedTaskColumns.has("task") ? "task-cell-pinned" : ""}`}
+                                        style={getPinnedTaskColumnStyle("task")}
+                                        value={task.title}
+                                        variant="borderless"
+                                        onChange={(event) => updateTask(epic.id, task.id, { title: event.target.value })}
+                                      />
+                                    ) : null}
+                                    {visibleTaskColumns.has("department") ? (
+                                      <Select
+                                        className={`task-field ${pinnedTaskColumns.has("department") ? "task-cell-pinned" : ""}`}
+                                        options={departmentSelectOptions}
+                                        style={getPinnedTaskColumnStyle("department")}
+                                        value={task.department}
+                                        onChange={(value) => updateTask(epic.id, task.id, { department: value })}
+                                      />
+                                    ) : null}
+                                    {visibleTaskColumns.has("status") ? (
+                                      <Select
+                                        className={`task-field colored-select ${pinnedTaskColumns.has("status") ? "task-cell-pinned" : ""}`}
+                                        options={statusSelectOptions}
+                                        style={
+                                          {
+                                            ...getPinnedTaskColumnStyle("status"),
+                                            "--setting-color": optionColor(settings.statuses, task.type),
+                                          } as React.CSSProperties
+                                        }
+                                        value={task.type}
+                                        onChange={(value) => updateTask(epic.id, task.id, { type: value })}
+                                      />
+                                    ) : null}
+                                    {visibleTaskColumns.has("agent") ? (
+                                      <Select
+                                        className={`task-field ${pinnedTaskColumns.has("agent") ? "task-cell-pinned" : ""}`}
+                                        options={assigneeSelectOptions}
+                                        style={getPinnedTaskColumnStyle("agent")}
+                                        value={task.assignee}
+                                        onChange={(value) => updateTask(epic.id, task.id, { assignee: value })}
+                                      />
+                                    ) : null}
+                                    {visibleTaskColumns.has("start") ? (
+                                      <DatePicker
+                                        allowClear={false}
+                                        className={`task-date-field ${pinnedTaskColumns.has("start") ? "task-cell-pinned" : ""}`}
+                                        format="YYYY-MM-DD"
+                                        inputReadOnly
+                                        style={getPinnedTaskColumnStyle("start")}
+                                        value={dayjs(task.startDate)}
+                                        onChange={(date) => updateTask(epic.id, task.id, { startDate: date ? date.format("YYYY-MM-DD") : task.startDate })}
+                                      />
+                                    ) : null}
+                                    {visibleTaskColumns.has("finish") ? (
+                                      <DatePicker
+                                        allowClear={false}
+                                        className={`task-date-field ${pinnedTaskColumns.has("finish") ? "task-cell-pinned" : ""}`}
+                                        format="YYYY-MM-DD"
+                                        inputReadOnly
+                                        style={getPinnedTaskColumnStyle("finish")}
+                                        value={dayjs(task.finishDate)}
+                                        onChange={(date) => updateTask(epic.id, task.id, { finishDate: date ? date.format("YYYY-MM-DD") : task.finishDate })}
+                                      />
+                                    ) : null}
+                                    {visibleTaskColumns.has("workdays") ? (
+                                      <span
+                                        className={`task-workdays ${pinnedTaskColumns.has("workdays") ? "task-cell-pinned" : ""}`}
+                                        style={getPinnedTaskColumnStyle("workdays")}
+                                      >
+                                        {getWorkdayDuration(task.startDate, task.finishDate, holidayDates)}
+                                      </span>
+                                    ) : null}
                                     <Button danger type="text" icon={<DeleteOutlined />} onClick={() => deleteTask(epic.id, task.id)} aria-label={`刪除 ${task.title}`} />
                                   </div>
                                 );
