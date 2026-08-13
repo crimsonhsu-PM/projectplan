@@ -288,11 +288,12 @@ select {
   border-radius: 10px;
   box-shadow: var(--shadow);
   display: grid;
-  gap: 18px;
+  gap: 16px;
   grid-template-areas:
-    "toggle gantt main"
-    ". gantt tasks";
-  grid-template-columns: 46px minmax(430px, 0.82fr) minmax(560px, 1fr);
+    "toggle main gantt"
+    ". tasks gantt";
+  grid-template-columns: 46px minmax(720px, 0.95fr) minmax(620px, 1fr);
+  min-width: 1450px;
   overflow-x: auto;
   padding: 22px;
 }
