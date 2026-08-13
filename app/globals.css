@@ -335,11 +335,23 @@ select {
   min-width: 1450px;
   overflow-x: auto;
   padding: 22px;
+  position: relative;
 }
 
 .epic-card-dragging {
   box-shadow: 0 16px 36px rgba(13, 91, 255, 0.14);
   opacity: 0.72;
+}
+
+.gantt-hover-line {
+  background: #111827;
+  bottom: 22px;
+  pointer-events: none;
+  position: absolute;
+  top: 22px;
+  transform: translateX(-50%);
+  width: 2px;
+  z-index: 12;
 }
 
 .epic-toggle-column {

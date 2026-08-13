@@ -543,6 +543,7 @@ export default function Home() {
   const [taskDropTarget, setTaskDropTarget] = useState<{ epicId: string; taskId: string; position: "before" | "after" } | null>(null);
   const [pinnedTaskColumns, setPinnedTaskColumns] = useState<Set<TaskColumnKey>>(() => new Set(["task"]));
   const [epicMainWidth, setEpicMainWidth] = useState(760);
+  const [ganttHoverLine, setGanttHoverLine] = useState<{ epicId: string; x: number } | null>(null);
   const [hasLoaded, setHasLoaded] = useState(false);
   const syncingGanttScrollRef = useRef(false);
 
@@ -1111,6 +1112,15 @@ export default function Home() {
     window.addEventListener("pointerup", handlePointerUp);
   }
 
+  function updateGanttHoverLine(epicId: string, event: React.MouseEvent<HTMLDivElement>) {
+    const card = event.currentTarget.closest<HTMLElement>(".epic-card");
+    if (!card) {
+      return;
+    }
+    const cardRect = card.getBoundingClientRect();
+    setGanttHoverLine({ epicId, x: event.clientX - cardRect.left });
+  }
+
   function renderGanttRow(item: Task, rowClassName = "") {
     const itemStart = new Date(`${item.startDate}T00:00:00`);
     const itemFinish = new Date(`${item.finishDate}T00:00:00`);
@@ -1220,6 +1230,7 @@ export default function Home() {
                           className={`epic-card ${draggingEpicId === epic.id ? "epic-card-dragging" : ""}`}
                           key={epic.id}
                           style={{ "--epic-main-width": `${epicMainWidth}px` } as React.CSSProperties}
+                          onMouseLeave={() => setGanttHoverLine((current) => (current?.epicId === epic.id ? null : current))}
                           onDragOver={(event) => {
                             if (draggingEpicId) {
                               event.preventDefault();
@@ -1231,7 +1242,10 @@ export default function Home() {
                             }
                             setDraggingEpicId(null);
                           }}
-                        >
+                          >
+                          {ganttHoverLine?.epicId === epic.id ? (
+                            <div className="gantt-hover-line" style={{ left: ganttHoverLine.x }} />
+                          ) : null}
                           <div className="epic-toggle-column">
                             <Button
                               aria-label={isCollapsed ? "展開 Tasks" : "收合 Tasks"}
@@ -1313,6 +1327,7 @@ export default function Home() {
                           <div
                             className="epic-gantt-panel"
                             data-gantt-group={epic.id}
+                            onMouseMove={(event) => updateGanttHoverLine(epic.id, event)}
                             onScroll={(event) => syncGanttScroll(epic.id, event.currentTarget)}
                             style={
                               {
@@ -1488,6 +1503,7 @@ export default function Home() {
                             <div
                               className="task-gantt-panel"
                               data-gantt-group={epic.id}
+                              onMouseMove={(event) => updateGanttHoverLine(epic.id, event)}
                               onScroll={(event) => syncGanttScroll(epic.id, event.currentTarget)}
                               style={
                                 {
