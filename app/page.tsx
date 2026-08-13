@@ -1489,9 +1489,7 @@ export default function Home() {
                 <Tag color="blue">EPIC {editingEpic.wbs}</Tag>
                 <Typography.Title level={3}>{editingEpic.title}</Typography.Title>
               </div>
-              <Button danger icon={<DeleteOutlined />} onClick={() => deleteEpic(editingEpic.id)}>
-                刪除 EPIC
-              </Button>
+              <Button danger icon={<DeleteOutlined />} onClick={() => deleteEpic(editingEpic.id)} aria-label={`刪除 ${editingEpic.title}`} />
             </div>
 
             <div className="form-grid">
@@ -1588,9 +1586,7 @@ export default function Home() {
                     placeholder="RM / JIRA"
                     aria-label={`${task.wbs} RM`}
                   />
-                  <Button danger icon={<DeleteOutlined />} onClick={() => deleteTask(editingEpic.id, task.id)}>
-                    刪除
-                  </Button>
+                  <Button danger icon={<DeleteOutlined />} onClick={() => deleteTask(editingEpic.id, task.id)} aria-label={`刪除 ${task.title}`} />
                 </div>
               ))}
             </div>
