@@ -96,6 +96,9 @@ type PlannerTableRow = {
 
 const STORAGE_KEY = "rsg-project-plan-v2";
 const PINNED_TASK_COLUMNS_KEY = "rsg-project-plan-pinned-task-columns-v1";
+const EPIC_MAIN_WIDTH_KEY = "rsg-project-plan-epic-main-width-v1";
+const MIN_EPIC_MAIN_WIDTH = 520;
+const MAX_EPIC_MAIN_WIDTH = 980;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const taskColumnDefinitions = [
@@ -547,6 +550,7 @@ export default function Home() {
   const [draggingTask, setDraggingTask] = useState<{ epicId: string; taskId: string } | null>(null);
   const [taskDropTarget, setTaskDropTarget] = useState<{ epicId: string; taskId: string; position: "before" | "after" } | null>(null);
   const [pinnedTaskColumns, setPinnedTaskColumns] = useState<Set<TaskColumnKey>>(() => new Set(["task"]));
+  const [epicMainWidth, setEpicMainWidth] = useState(760);
   const [hasLoaded, setHasLoaded] = useState(false);
   const syncingGanttScrollRef = useRef(false);
 
@@ -575,6 +579,10 @@ export default function Home() {
         setPinnedTaskColumns(new Set(["task"]));
       }
     }
+    const savedEpicMainWidth = Number(window.localStorage.getItem(EPIC_MAIN_WIDTH_KEY));
+    if (Number.isFinite(savedEpicMainWidth)) {
+      setEpicMainWidth(Math.min(MAX_EPIC_MAIN_WIDTH, Math.max(MIN_EPIC_MAIN_WIDTH, savedEpicMainWidth)));
+    }
     setHasLoaded(true);
   }, []);
 
@@ -582,8 +590,9 @@ export default function Home() {
     if (hasLoaded) {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ project, epics, settings }));
       window.localStorage.setItem(PINNED_TASK_COLUMNS_KEY, JSON.stringify(Array.from(pinnedTaskColumns)));
+      window.localStorage.setItem(EPIC_MAIN_WIDTH_KEY, String(epicMainWidth));
     }
-  }, [epics, hasLoaded, pinnedTaskColumns, project, settings]);
+  }, [epicMainWidth, epics, hasLoaded, pinnedTaskColumns, project, settings]);
 
   const editingEpic = epics.find((epic) => epic.id === editingEpicId) ?? null;
   const typeLabels = useMemo(() => settingLabels(settings.types), [settings.types]);
@@ -1091,6 +1100,26 @@ export default function Home() {
     });
   }
 
+  function startEpicPaneResize(event: React.PointerEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = epicMainWidth;
+    const pointerId = event.pointerId;
+    event.currentTarget.setPointerCapture(pointerId);
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      const nextWidth = startWidth + moveEvent.clientX - startX;
+      setEpicMainWidth(Math.min(MAX_EPIC_MAIN_WIDTH, Math.max(MIN_EPIC_MAIN_WIDTH, nextWidth)));
+    };
+    const handlePointerUp = () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+  }
+
   function renderGanttRow(item: Task, rowClassName = "") {
     const itemStart = new Date(`${item.startDate}T00:00:00`);
     const itemFinish = new Date(`${item.finishDate}T00:00:00`);
@@ -1204,6 +1233,7 @@ export default function Home() {
                         <article
                           className={`epic-card ${draggingEpicId === epic.id ? "epic-card-dragging" : ""}`}
                           key={epic.id}
+                          style={{ "--epic-main-width": `${epicMainWidth}px` } as React.CSSProperties}
                           onDragOver={(event) => {
                             if (draggingEpicId) {
                               event.preventDefault();
@@ -1286,6 +1316,13 @@ export default function Home() {
                               </Field>
                             </div>
                           </div>
+
+                          <button
+                            aria-label="調整資料區與甘特圖寬度"
+                            className="epic-pane-resizer"
+                            onPointerDown={startEpicPaneResize}
+                            type="button"
+                          />
 
                           <div
                             className="epic-gantt-panel"
