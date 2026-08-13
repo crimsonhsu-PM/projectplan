@@ -35,6 +35,7 @@ import {
   RightOutlined,
   SettingOutlined,
   TableOutlined,
+  UploadOutlined,
   UserOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
@@ -94,6 +95,27 @@ type PlannerTableRow = {
   priority?: string;
   department?: string;
   project?: string;
+};
+
+type ImportMode = "append" | "replace";
+
+type ImportedRow = {
+  kind: string;
+  wbs: string;
+  priority: string;
+  title: string;
+  type: string;
+  department: string;
+  assignee: string;
+  startDate: string;
+  finishDate: string;
+  rm: string;
+  rowNumber: number;
+};
+
+type ImportPreview = {
+  epics: Epic[];
+  errors: string[];
 };
 
 const STORAGE_KEY = "rsg-project-plan-v2";
@@ -305,6 +327,192 @@ function exportProjectExcel(project: ProjectMeta, epics: Epic[], holidayDates: S
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
+}
+
+function downloadImportTemplate() {
+  const rows = [
+    spreadsheetRow(["類型", "WBS", "Priority", "Epic/Task", "Type/狀態", "部門", "Agent", "Start", "Finish", "RM/JIRA"]),
+    spreadsheetRow(["EPIC", "24", "1", "新遊戲開發 - 決戰賽特2", "全新開發", "PM", "Simon", "2026-05-05", "2026-07-15", ""]),
+    spreadsheetRow(["TASK", "24.1", "", "企劃規格書", "完成", "企劃", "Simon", "2026-05-05", "2026-05-20", ""]),
+    spreadsheetRow(["TASK", "24.2", "", "overview", "完成", "企劃", "Simon", "2026-05-05", "2026-05-20", ""]),
+  ];
+  const html = `<!doctype html><html><head><meta charset="UTF-8"></head><body><table>${rows.join("")}</table></body></html>`;
+  downloadTextFile("RSG匯入範例.xls", html, "application/vnd.ms-excel;charset=utf-8");
+}
+
+function downloadTextFile(fileName: string, content: string, type: string) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function parseImportedDate(value: string) {
+  const text = value.trim();
+  if (!text) {
+    return "";
+  }
+  const normalized = text.replace(/\//g, "-").replace(/\./g, "-");
+  const match = normalized.match(/^(\d{2}|\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (match) {
+    const year = match[1].length === 2 ? `20${match[1]}` : match[1];
+    const date = new Date(Number(year), Number(match[2]) - 1, Number(match[3]));
+    if (!Number.isNaN(date.getTime())) {
+      return formatIso(date);
+    }
+  }
+  const fallback = dayjs(normalized);
+  return fallback.isValid() ? fallback.format("YYYY-MM-DD") : "";
+}
+
+function parseDelimitedRows(text: string) {
+  const delimiter = text.includes("\t") ? "\t" : ",";
+  const rows: string[][] = [];
+  let cell = "";
+  let row: string[] = [];
+  let inQuotes = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    const next = text[index + 1];
+    if (char === '"' && inQuotes && next === '"') {
+      cell += '"';
+      index += 1;
+    } else if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === delimiter && !inQuotes) {
+      row.push(cell.trim());
+      cell = "";
+    } else if ((char === "\n" || char === "\r") && !inQuotes) {
+      if (char === "\r" && next === "\n") {
+        index += 1;
+      }
+      row.push(cell.trim());
+      if (row.some(Boolean)) {
+        rows.push(row);
+      }
+      cell = "";
+      row = [];
+    } else {
+      cell += char;
+    }
+  }
+  row.push(cell.trim());
+  if (row.some(Boolean)) {
+    rows.push(row);
+  }
+  return rows;
+}
+
+function parseHtmlTableRows(text: string) {
+  const doc = new DOMParser().parseFromString(text, "text/html");
+  return Array.from(doc.querySelectorAll("tr"))
+    .map((row) => Array.from(row.querySelectorAll("th,td")).map((cell) => cell.textContent?.trim() ?? ""))
+    .filter((row) => row.some(Boolean));
+}
+
+function parseSpreadsheetText(text: string) {
+  if (/<table[\s>]/i.test(text)) {
+    return parseHtmlTableRows(text);
+  }
+  return parseDelimitedRows(text);
+}
+
+function mapImportedRows(rows: string[][]): ImportedRow[] {
+  const headerIndex = rows.findIndex((row) => row.some((cell) => cell.toLowerCase() === "wbs"));
+  const dataRows = rows.slice(headerIndex >= 0 ? headerIndex + 1 : 0);
+  return dataRows
+    .map((row, index) => ({
+      kind: row[0]?.trim().toUpperCase() ?? "",
+      wbs: row[1]?.trim() ?? "",
+      priority: row[2]?.trim() ?? "",
+      title: row[3]?.trim() ?? "",
+      type: row[4]?.trim() ?? "",
+      department: row[5]?.trim() ?? "",
+      assignee: row[6]?.trim() ?? "",
+      startDate: parseImportedDate(row[7] ?? ""),
+      finishDate: parseImportedDate(row[8] ?? ""),
+      rm: row[9]?.trim() ?? "",
+      rowNumber: (headerIndex >= 0 ? headerIndex + 2 : 1) + index,
+    }))
+    .filter((row) => row.kind || row.wbs || row.title);
+}
+
+function buildImportPreview(rows: ImportedRow[], settings: AppSettings): ImportPreview {
+  const errors: string[] = [];
+  const epicMap = new Map<string, Epic>();
+  const orderedEpics: Epic[] = [];
+
+  rows.forEach((row) => {
+    if (row.kind !== "EPIC" && row.kind !== "TASK") {
+      errors.push(`第 ${row.rowNumber} 列：類型需為 EPIC 或 TASK`);
+      return;
+    }
+    if (!row.wbs) {
+      errors.push(`第 ${row.rowNumber} 列：WBS 必填`);
+      return;
+    }
+    if (!row.title) {
+      errors.push(`第 ${row.rowNumber} 列：Epic/Task 必填`);
+      return;
+    }
+    if (!row.startDate || !row.finishDate) {
+      errors.push(`第 ${row.rowNumber} 列：Start / Finish 日期格式不正確`);
+      return;
+    }
+
+    if (row.kind === "EPIC") {
+      const epic: Epic = normalizeEpic({
+        id: `import-epic-${Date.now()}-${orderedEpics.length}`,
+        wbs: row.wbs,
+        priority: row.priority || String(orderedEpics.length + 1),
+        title: row.title,
+        type: row.type || settings.types[0]?.label || "全新開發",
+        department: row.department || "PM",
+        assignee: row.assignee || settings.agents[0] || "Simon",
+        startDate: row.startDate,
+        finishDate: row.finishDate,
+        duration: getDuration(row.startDate, row.finishDate),
+        rm: row.rm,
+        progress: 0,
+        tasks: [],
+      });
+      epicMap.set(row.wbs, epic);
+      orderedEpics.push(epic);
+      return;
+    }
+
+    const epicWbs = row.wbs.includes(".") ? row.wbs.split(".")[0] : row.wbs;
+    const epic = epicMap.get(epicWbs);
+    if (!epic) {
+      errors.push(`第 ${row.rowNumber} 列：找不到 WBS ${epicWbs} 的 EPIC`);
+      return;
+    }
+    epic.tasks.push(
+      normalizeTask({
+        id: `import-task-${Date.now()}-${row.rowNumber}`,
+        wbs: row.wbs,
+        title: row.title,
+        type: row.type || settings.statuses[0]?.label || "待辦",
+        department: row.department || settings.departments[0] || "企劃",
+        assignee: row.assignee || settings.agents[0] || "Simon",
+        startDate: row.startDate,
+        finishDate: row.finishDate,
+        duration: getDuration(row.startDate, row.finishDate),
+        rm: row.rm,
+        progress: 0,
+      }),
+    );
+  });
+
+  return {
+    epics: orderedEpics.map((epic) => normalizeEpic({ ...epic, tasks: renumberTasks(epic.tasks, epic.wbs) })),
+    errors,
+  };
 }
 
 function addDays(date: Date, days: number) {
@@ -610,7 +818,13 @@ export default function Home() {
   const [visibleTaskColumns, setVisibleTaskColumns] = useState<Set<TaskColumnKey>>(() => new Set(taskColumnDefinitions.map((column) => column.key)));
   const [epicMainWidth, setEpicMainWidth] = useState(760);
   const [ganttHoverLine, setGanttHoverLine] = useState<{ epicId: string; x: number } | null>(null);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importMode, setImportMode] = useState<ImportMode>("append");
+  const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
+  const [importFileName, setImportFileName] = useState("");
+  const [isImportDragging, setIsImportDragging] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
   const syncingGanttScrollRef = useRef(false);
 
   useEffect(() => {
@@ -1141,6 +1355,43 @@ export default function Home() {
     };
   }
 
+  function resetImportState() {
+    setImportPreview(null);
+    setImportFileName("");
+    setIsImportDragging(false);
+    setImportMode("append");
+    if (importInputRef.current) {
+      importInputRef.current.value = "";
+    }
+  }
+
+  function closeImportModal() {
+    setIsImportModalOpen(false);
+    resetImportState();
+  }
+
+  function importFile(file: File) {
+    setImportFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = String(reader.result ?? "");
+      const preview = buildImportPreview(mapImportedRows(parseSpreadsheetText(text)), settings);
+      setImportPreview(preview);
+    };
+    reader.onerror = () => {
+      setImportPreview({ epics: [], errors: ["檔案讀取失敗，請重新選擇檔案"] });
+    };
+    reader.readAsText(file);
+  }
+
+  function confirmImport() {
+    if (!importPreview?.epics.length) {
+      return;
+    }
+    setEpics((current) => (importMode === "replace" ? importPreview.epics : [...current, ...importPreview.epics]).map(normalizeEpic));
+    closeImportModal();
+  }
+
   function getOffset(date: string) {
     return Math.max(
       0,
@@ -1289,6 +1540,9 @@ export default function Home() {
                   </Field>
                   <Button type="primary" icon={<PlusOutlined />} onClick={addEpic}>
                     新增 EPIC
+                  </Button>
+                  <Button icon={<UploadOutlined />} onClick={() => setIsImportModalOpen(true)}>
+                    匯入 Excel
                   </Button>
                   <Button icon={<DownloadOutlined />} onClick={() => exportProjectExcel(project, epics, holidayDates)}>
                     匯出 Excel
@@ -1767,6 +2021,93 @@ export default function Home() {
             </div>
           </>
         ) : null}
+      </Modal>
+      <Modal
+        title="匯入 Excel"
+        open={isImportModalOpen}
+        width={720}
+        okText="確認匯入"
+        cancelText="取消"
+        okButtonProps={{ disabled: !importPreview?.epics.length || Boolean(importPreview?.errors.length) }}
+        onCancel={closeImportModal}
+        onOk={confirmImport}
+      >
+        <div className="import-modal">
+          <div className="import-actions">
+            <Button icon={<DownloadOutlined />} onClick={downloadImportTemplate}>
+              下載匯入範例
+            </Button>
+            <Select
+              className="import-mode-select"
+              options={[
+                { label: "追加匯入", value: "append" },
+                { label: "覆蓋匯入", value: "replace" },
+              ]}
+              value={importMode}
+              onChange={setImportMode}
+            />
+          </div>
+          <button
+            className={`import-dropzone ${isImportDragging ? "import-dropzone-active" : ""}`}
+            type="button"
+            onClick={() => importInputRef.current?.click()}
+            onDragEnter={(event) => {
+              event.preventDefault();
+              setIsImportDragging(true);
+            }}
+            onDragOver={(event) => {
+              event.preventDefault();
+              setIsImportDragging(true);
+            }}
+            onDragLeave={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                setIsImportDragging(false);
+              }
+            }}
+            onDrop={(event) => {
+              event.preventDefault();
+              setIsImportDragging(false);
+              const file = event.dataTransfer.files[0];
+              if (file) {
+                importFile(file);
+              }
+            }}
+          >
+            <UploadOutlined />
+            <strong>拖曳 Excel 到此處，或點擊選擇檔案</strong>
+            <span>支援匯入範例格式、CSV、TSV 與 HTML XLS</span>
+          </button>
+          <input
+            accept=".xls,.xlsx,.csv,.tsv"
+            className="import-file-input"
+            ref={importInputRef}
+            type="file"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) {
+                importFile(file);
+              }
+            }}
+          />
+          {importPreview ? (
+            <div className="import-preview">
+              <div className="import-preview-summary">
+                <span>檔案：{importFileName || "-"}</span>
+                <span>Epic：{importPreview.epics.length}</span>
+                <span>Task：{importPreview.epics.reduce((total, epic) => total + epic.tasks.length, 0)}</span>
+              </div>
+              {importPreview.errors.length ? (
+                <div className="import-errors">
+                  {importPreview.errors.map((error) => (
+                    <span key={error}>{error}</span>
+                  ))}
+                </div>
+              ) : (
+                <div className="import-ready">解析完成，可確認匯入。</div>
+              )}
+            </div>
+          ) : null}
+        </div>
       </Modal>
       </main>
     </ConfigProvider>

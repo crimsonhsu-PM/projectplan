@@ -175,6 +175,89 @@ select {
   border-radius: 8px;
 }
 
+.import-modal {
+  display: grid;
+  gap: 16px;
+}
+
+.import-actions {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.import-mode-select {
+  width: 140px;
+}
+
+.import-dropzone {
+  align-items: center;
+  background: #f8faff;
+  border: 1px dashed #9bbcff;
+  border-radius: 8px;
+  color: #526079;
+  cursor: pointer;
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  min-height: 150px;
+  padding: 24px;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+  width: 100%;
+}
+
+.import-dropzone .anticon {
+  color: #0d5bff;
+  font-size: 28px;
+}
+
+.import-dropzone strong {
+  color: #182136;
+  font-size: 16px;
+}
+
+.import-dropzone-active {
+  background: #eef5ff;
+  border-color: #0d5bff;
+  color: #0d5bff;
+}
+
+.import-file-input {
+  display: none;
+}
+
+.import-preview {
+  background: #f7f8fb;
+  border: 1px solid #edf0f7;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.import-preview-summary {
+  color: #33394a;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 12px;
+}
+
+.import-errors {
+  color: #d92d20;
+  display: grid;
+  font-size: 13px;
+  gap: 6px;
+}
+
+.import-ready {
+  color: #16a34a;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .settings-page {
   margin: 0 auto;
   max-width: 1680px;
