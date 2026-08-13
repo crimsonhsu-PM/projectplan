@@ -409,6 +409,7 @@ export default function Home() {
   const [activePage, setActivePage] = useState<"planner" | "settings">("planner");
   const [editingEpicId, setEditingEpicId] = useState<string | null>(null);
   const [collapsedEpicIds, setCollapsedEpicIds] = useState<Set<string>>(new Set());
+  const [draggingEpicId, setDraggingEpicId] = useState<string | null>(null);
   const [draggingTask, setDraggingTask] = useState<{ epicId: string; taskId: string } | null>(null);
   const [hasLoaded, setHasLoaded] = useState(false);
 
@@ -739,6 +740,23 @@ export default function Home() {
     );
   }
 
+  function reorderEpic(sourceEpicId: string, targetEpicId: string) {
+    if (sourceEpicId === targetEpicId) {
+      return;
+    }
+    setEpics((current) => {
+      const sourceIndex = current.findIndex((epic) => epic.id === sourceEpicId);
+      const targetIndex = current.findIndex((epic) => epic.id === targetEpicId);
+      if (sourceIndex < 0 || targetIndex < 0) {
+        return current;
+      }
+      const next = [...current];
+      const [movingEpic] = next.splice(sourceIndex, 1);
+      next.splice(targetIndex, 0, movingEpic);
+      return next;
+    });
+  }
+
   function renumberTasks(tasks: Task[], epicWbs: string) {
     return tasks.map((task, index) => ({ ...task, wbs: `${epicWbs}.${index + 1}` }));
   }
@@ -964,7 +982,21 @@ export default function Home() {
                     {epics.map((epic) => {
                       const isCollapsed = collapsedEpicIds.has(epic.id);
                       return (
-                        <article className="epic-card" key={epic.id}>
+                        <article
+                          className={`epic-card ${draggingEpicId === epic.id ? "epic-card-dragging" : ""}`}
+                          key={epic.id}
+                          onDragOver={(event) => {
+                            if (draggingEpicId) {
+                              event.preventDefault();
+                            }
+                          }}
+                          onDrop={() => {
+                            if (draggingEpicId) {
+                              reorderEpic(draggingEpicId, epic.id);
+                            }
+                            setDraggingEpicId(null);
+                          }}
+                        >
                           <div className="epic-toggle-column">
                             <Button
                               aria-label={isCollapsed ? "展開 Tasks" : "收合 Tasks"}
@@ -976,6 +1008,19 @@ export default function Home() {
                           </div>
                           <div className="epic-card-main">
                             <div className="epic-title-row">
+                              <button
+                                aria-label={`拖曳 ${epic.title} 調整 Epic 順序`}
+                                className="epic-drag-handle"
+                                draggable
+                                onDragEnd={() => setDraggingEpicId(null)}
+                                onDragStart={(event) => {
+                                  event.dataTransfer.effectAllowed = "move";
+                                  setDraggingEpicId(epic.id);
+                                }}
+                                type="button"
+                              >
+                                <HolderOutlined />
+                              </button>
                               <Tag color="blue">EPIC {epic.wbs}</Tag>
                               <Button type="link" className="epic-title-button" icon={<EditOutlined />} onClick={() => setEditingEpicId(epic.id)}>
                                 {epic.title}

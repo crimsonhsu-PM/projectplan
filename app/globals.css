@@ -297,6 +297,11 @@ select {
   padding: 22px;
 }
 
+.epic-card-dragging {
+  box-shadow: 0 16px 36px rgba(13, 91, 255, 0.14);
+  opacity: 0.72;
+}
+
 .epic-toggle-column {
   align-items: flex-start;
   border-right: 1px solid #edf0f7;
@@ -321,6 +326,27 @@ select {
   display: flex;
   gap: 10px;
   min-width: 0;
+}
+
+.epic-drag-handle {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: #98a2b3;
+  cursor: grab;
+  display: flex;
+  height: 28px;
+  justify-content: center;
+  padding: 0;
+  width: 24px;
+}
+
+.epic-drag-handle:active {
+  cursor: grabbing;
+}
+
+.epic-drag-handle:hover {
+  color: #0d5bff;
 }
 
 .epic-title-button {
