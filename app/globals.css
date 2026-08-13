@@ -199,6 +199,14 @@ select {
   min-width: 64px;
 }
 
+.planner-table .assignee-cell .cell-control {
+  min-width: 96px;
+}
+
+.planner-table .assignee-cell .ant-select-selection-item {
+  min-width: 54px;
+}
+
 .planner-table .cell-control.ant-picker {
   padding-inline: 0;
 }

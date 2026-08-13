@@ -354,7 +354,7 @@ export default function Home() {
         46,
       ),
       type: columnWidth(["Type", ...typeOptions, ...textRows.map((item) => item?.type)], 104, 150, 34),
-      assignee: columnWidth(["Assignee", ...assignees, ...textRows.map((item) => item?.assignee)], 92, 130, 34),
+      assignee: columnWidth(["Assignee", ...assignees, ...textRows.map((item) => item?.assignee)], 128, 180, 48),
       startDate: columnWidth(["Start date", ...textRows.map((item) => item?.startDate.slice(2))], 104, 118, 24),
       finishDate: columnWidth(["Finish date", ...textRows.map((item) => item?.finishDate.slice(2))], 104, 118, 24),
       duration: columnWidth(["Duration", ...textRows.map((item) => item?.duration)], 76, 96, 18),
@@ -466,6 +466,7 @@ export default function Home() {
       {
         title: "Assignee",
         width: tableWidths.assignee,
+        className: "assignee-cell",
         render: (_, row) => {
           if (!row.item) {
             return "";
