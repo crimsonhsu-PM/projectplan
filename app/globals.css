@@ -89,7 +89,7 @@ select {
   background: var(--white);
   border: 1px solid var(--line);
   display: grid;
-  grid-template-columns: 1100px 1fr;
+  grid-template-columns: var(--table-width, 1100px) 1fr;
   margin: 0 auto;
   max-width: 1680px;
   overflow: auto;
@@ -97,7 +97,7 @@ select {
 
 .left-pane {
   border-right: 4px solid #c4c7cc;
-  min-width: 1100px;
+  min-width: var(--table-width, 1100px);
 }
 
 .planner-table .ant-table {
@@ -359,7 +359,7 @@ select {
   }
 
   .sheet {
-    grid-template-columns: 1100px minmax(720px, 1fr);
+    grid-template-columns: var(--table-width, 1100px) minmax(720px, 1fr);
   }
 
   .form-grid,

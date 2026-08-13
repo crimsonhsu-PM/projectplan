@@ -181,6 +181,31 @@ function enumerateDays(start: Date, end: Date) {
   return days;
 }
 
+function estimateTextWidth(value: string) {
+  return Array.from(value).reduce((width, character) => {
+    if (/[\u3000-\u9fff\uff00-\uffef]/.test(character)) {
+      return width + 15;
+    }
+    if (/[A-Z]/.test(character)) {
+      return width + 8.5;
+    }
+    if (/[0-9]/.test(character)) {
+      return width + 7.5;
+    }
+    if (character === " ") {
+      return width + 4;
+    }
+    return width + 7;
+  }, 0);
+}
+
+function columnWidth(values: Array<string | number | undefined>, min: number, max: number, extra = 24) {
+  const widest = values.reduce((width, value) => {
+    return Math.max(width, estimateTextWidth(String(value ?? "")));
+  }, 0);
+  return Math.ceil(Math.min(max, Math.max(min, widest + extra)));
+}
+
 function weekLabel(date: Date) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
@@ -311,11 +336,40 @@ export default function Home() {
   const { start, end } = useMemo(() => getDateRange(epics), [epics]);
   const days = useMemo(() => enumerateDays(start, end), [start, end]);
   const weeks = useMemo(() => days.filter((day) => day.getDay() === 1), [days]);
+  const tableWidths = useMemo(() => {
+    const rowsWithItems = tableRows.filter((row) => row.item);
+    const textRows = tableRows.map((row) => row.item);
+    const widths = {
+      wbs: columnWidth(["WBS", ...rowsWithItems.map((row) => row.item?.wbs)], 64, 92, 24),
+      priority: columnWidth(
+        ["Priority", ...tableRows.map((row) => (row.rowKind === "task" ? row.item?.department : row.priority ?? row.department))],
+        76,
+        92,
+        22,
+      ),
+      description: columnWidth(
+        ["Epic/Task description", ...tableRows.map((row) => row.item?.title ?? row.project)],
+        300,
+        520,
+        46,
+      ),
+      type: columnWidth(["Type", ...typeOptions, ...textRows.map((item) => item?.type)], 104, 150, 34),
+      assignee: columnWidth(["Assignee", ...assignees, ...textRows.map((item) => item?.assignee)], 92, 130, 34),
+      startDate: columnWidth(["Start date", ...textRows.map((item) => item?.startDate.slice(2))], 104, 118, 24),
+      finishDate: columnWidth(["Finish date", ...textRows.map((item) => item?.finishDate.slice(2))], 104, 118, 24),
+      duration: columnWidth(["Duration", ...textRows.map((item) => item?.duration)], 76, 96, 18),
+      rm: columnWidth(["RM", ...textRows.map((item) => item?.rm)], 110, 220, 24),
+    };
+    return {
+      ...widths,
+      total: Object.values(widths).reduce((total, width) => total + width, 0),
+    };
+  }, [tableRows]);
   const tableColumns = useMemo<TableProps<PlannerTableRow>["columns"]>(
     () => [
       {
         title: "WBS",
-        width: 64,
+        width: tableWidths.wbs,
         render: (_, row) => {
           if (row.rowKind === "epic" && row.item) {
             const isCollapsed = collapsedEpicIds.has(row.epicId);
@@ -337,7 +391,7 @@ export default function Home() {
       },
       {
         title: "Priority",
-        width: 72,
+        width: tableWidths.priority,
         className: "department-cell",
         render: (_, row) => {
           if (row.rowKind === "task" && row.item) {
@@ -358,7 +412,7 @@ export default function Home() {
       },
       {
         title: "Epic/Task description",
-        width: 330,
+        width: tableWidths.description,
         className: "description-cell",
         render: (_, row) => {
           if (row.rowKind === "section") {
@@ -387,7 +441,7 @@ export default function Home() {
       },
       {
         title: "Type",
-        width: 116,
+        width: tableWidths.type,
         render: (_, row) => {
           if (!row.item) {
             return "";
@@ -411,7 +465,7 @@ export default function Home() {
       },
       {
         title: "Assignee",
-        width: 96,
+        width: tableWidths.assignee,
         render: (_, row) => {
           if (!row.item) {
             return "";
@@ -435,7 +489,7 @@ export default function Home() {
       },
       {
         title: "Start date",
-        width: 104,
+        width: tableWidths.startDate,
         render: (_, row) => {
           if (!row.item) {
             return "";
@@ -464,7 +518,7 @@ export default function Home() {
       },
       {
         title: "Finish date",
-        width: 104,
+        width: tableWidths.finishDate,
         render: (_, row) => {
           if (!row.item) {
             return "";
@@ -493,16 +547,16 @@ export default function Home() {
       },
       {
         title: "Duration",
-        width: 64,
+        width: tableWidths.duration,
         render: (_, row) => row.item?.duration ?? "",
       },
       {
         title: "RM",
-        width: 150,
+        width: tableWidths.rm,
         render: (_, row) => row.item?.rm ?? "",
       },
     ],
-    [collapsedEpicIds],
+    [collapsedEpicIds, tableWidths],
   );
 
   function toggleEpic(epicId: string) {
@@ -624,7 +678,11 @@ export default function Home() {
         </Button>
       </section>
 
-      <section className="sheet" aria-label="Epic 與 Task 甘特圖">
+      <section
+        className="sheet"
+        style={{ "--table-width": `${tableWidths.total}px` } as React.CSSProperties}
+        aria-label="Epic 與 Task 甘特圖"
+      >
         <div className="left-pane">
           <Table<PlannerTableRow>
             bordered
