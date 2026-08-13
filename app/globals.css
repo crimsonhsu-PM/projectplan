@@ -260,7 +260,7 @@ select {
   box-shadow: var(--shadow);
   display: grid;
   gap: 18px;
-  grid-template-columns: 46px minmax(520px, 1fr) minmax(280px, 360px);
+  grid-template-columns: 46px minmax(520px, 1fr) minmax(520px, 0.95fr);
   padding: 22px;
 }
 
@@ -314,43 +314,103 @@ select {
   gap: 6px;
 }
 
-.epic-timeline {
+.epic-gantt-panel {
   background: #f7f9fd;
   border-radius: 8px;
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 12px;
+}
+
+.gantt-scroll {
+  --gantt-cell: 34px;
+  min-width: calc(var(--gantt-days) * var(--gantt-cell));
+}
+
+.gantt-week-header,
+.gantt-date-header,
+.gantt-weekday-header,
+.gantt-board-row {
   display: grid;
-  gap: 12px;
-  padding: 16px;
+  grid-template-columns: repeat(var(--gantt-days), var(--gantt-cell));
 }
 
-.timeline-meta,
-.timeline-dates {
-  color: #8d95a8;
+.gantt-week-header span {
+  align-items: center;
+  background: #0d5bff;
+  border-right: 1px solid rgba(255, 255, 255, 0.45);
+  color: #ffffff;
   display: flex;
+  flex-direction: column;
   font-size: 12px;
+  font-weight: 800;
+  justify-content: center;
+  min-height: 40px;
+}
+
+.gantt-week-header small {
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 10px;
   font-weight: 700;
-  justify-content: space-between;
+  line-height: 1.2;
 }
 
-.timeline-track {
-  background: #e7ecf5;
-  border-radius: 999px;
-  height: 12px;
-  overflow: hidden;
-  position: relative;
+.gantt-date-header span,
+.gantt-weekday-header span {
+  align-items: center;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f3;
+  border-right: 1px solid #e2e8f3;
+  color: #667085;
+  display: flex;
+  font-size: 10px;
+  font-weight: 700;
+  justify-content: center;
+  min-height: 22px;
 }
 
-.timeline-bar {
+.gantt-weekday-header span {
+  background: #f2f6ff;
+  color: #172033;
+  font-size: 12px;
+}
+
+.gantt-board-row {
+  align-items: center;
+  background-color: #ffffff;
+  background-image: repeating-linear-gradient(
+    to right,
+    transparent 0,
+    transparent 33px,
+    #e7edf7 33px,
+    #e7edf7 34px
+  );
+  border-bottom: 10px solid #f7f9fd;
+  min-height: 54px;
+}
+
+.gantt-board-row.epic-gantt-row {
+  background-color: #fffaf0;
+  min-height: 76px;
+}
+
+.gantt-board-bar {
+  align-self: center;
   background: linear-gradient(90deg, var(--bar-deep) 0 var(--progress), var(--bar) var(--progress));
   border-radius: 999px;
-  height: 100%;
-  position: absolute;
+  height: 12px;
+  margin: 0 3px;
+  min-width: 8px;
 }
 
 .task-list {
   border-top: 1px solid #edf0f7;
   display: grid;
   gap: 10px;
-  grid-column: 2 / -1;
+  grid-column: 2;
   padding-top: 16px;
 }
 
@@ -745,6 +805,11 @@ select {
 
   .task-list {
     grid-column: 1;
+  }
+
+  .epic-gantt-panel {
+    grid-column: 1;
+    grid-row: auto;
   }
 
   .epic-fields,

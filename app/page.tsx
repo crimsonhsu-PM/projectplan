@@ -191,6 +191,29 @@ function getDateRange(epics: Epic[]) {
   };
 }
 
+function getGanttRange(projectStartDate: string, epics: Epic[]) {
+  const parsedStart = new Date(`${projectStartDate}T00:00:00`);
+  const start = Number.isNaN(parsedStart.getTime()) ? new Date() : parsedStart;
+  const finishDates = epics.flatMap((epic) => [
+    epic.finishDate,
+    ...epic.tasks.map((task) => task.finishDate),
+  ]);
+  const validFinishDates = finishDates
+    .map((date) => new Date(`${date}T00:00:00`))
+    .filter((date) => !Number.isNaN(date.getTime()));
+  const latestFinish = validFinishDates.length
+    ? new Date(Math.max(...validFinishDates.map((date) => date.getTime())))
+    : addDays(start, 27);
+  const minimumEnd = addDays(start, 27);
+  const rawEnd = latestFinish > minimumEnd ? latestFinish : minimumEnd;
+  const dayCount = Math.max(28, Math.round((rawEnd.getTime() - start.getTime()) / DAY_MS) + 1);
+  const paddedDayCount = Math.ceil(dayCount / 7) * 7;
+  return {
+    start,
+    end: addDays(start, paddedDayCount - 1),
+  };
+}
+
 function enumerateDays(start: Date, end: Date) {
   const days: Date[] = [];
   for (let current = new Date(start); current <= end; current = addDays(current, 1)) {
@@ -253,7 +276,9 @@ function weekLabel(date: Date) {
 }
 
 function dayLabel(date: Date) {
-  return String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${month}/${day}`;
 }
 
 function weekday(date: Date) {
@@ -391,9 +416,16 @@ export default function Home() {
       }),
     [collapsedEpicIds, epics],
   );
-  const { start, end } = useMemo(() => getDateRange(epics), [epics]);
+  const { start, end } = useMemo(() => getGanttRange(project.startDate, epics), [epics, project.startDate]);
   const days = useMemo(() => enumerateDays(start, end), [start, end]);
   const weeks = useMemo(() => days.filter((day) => day.getDay() === 1), [days]);
+  const ganttWeeks = useMemo(() => {
+    const segments: Date[][] = [];
+    for (let index = 0; index < days.length; index += 7) {
+      segments.push(days.slice(index, index + 7));
+    }
+    return segments;
+  }, [days]);
   const tableWidths = useMemo(() => {
     const rowsWithItems = tableRows.filter((row) => row.item);
     const textRows = tableRows.map((row) => row.item);
@@ -712,6 +744,31 @@ export default function Home() {
     );
   }
 
+  function renderGanttRow(item: Task, rowClassName = "") {
+    const itemStart = new Date(`${item.startDate}T00:00:00`);
+    const itemFinish = new Date(`${item.finishDate}T00:00:00`);
+    const rawOffset = Math.round((itemStart.getTime() - start.getTime()) / DAY_MS);
+    const rawFinishOffset = Math.round((itemFinish.getTime() - start.getTime()) / DAY_MS);
+    const columnStart = Math.min(days.length, Math.max(0, rawOffset)) + 1;
+    const columnEnd = Math.min(days.length, Math.max(columnStart, rawFinishOffset + 1));
+    const span = Math.max(1, columnEnd - columnStart + 1);
+
+    return (
+      <div className={`gantt-board-row ${rowClassName}`} key={`${item.id}-gantt`}>
+        <span
+          className="gantt-board-bar"
+          style={
+            {
+              gridColumn: `${columnStart} / span ${span}`,
+              "--progress": `${item.progress}%`,
+            } as React.CSSProperties
+          }
+          title={`${item.wbs} ${item.title}: ${item.startDate} - ${item.finishDate}`}
+        />
+      </div>
+    );
+  }
+
   return (
     <ConfigProvider
       theme={{
@@ -799,8 +856,6 @@ export default function Home() {
                   <div className="epic-list">
                     {epics.map((epic) => {
                       const isCollapsed = collapsedEpicIds.has(epic.id);
-                      const epicLeft = (getOffset(epic.startDate) / Math.max(1, days.length)) * 100;
-                      const epicWidth = (getDuration(epic.startDate, epic.finishDate) / Math.max(1, days.length)) * 100;
                       return (
                         <article className="epic-card" key={epic.id}>
                           <div className="epic-toggle-column">
@@ -854,24 +909,35 @@ export default function Home() {
                             </div>
                           </div>
 
-                          <div className="epic-timeline">
-                            <div className="timeline-meta">
-                              <span>{epic.duration} days</span>
-                              <span>{epic.progress}%</span>
-                            </div>
-                            <div className="timeline-track">
-                              <span
-                                className="timeline-bar"
-                                style={{
-                                  left: `${Math.min(96, epicLeft)}%`,
-                                  width: `${Math.max(4, Math.min(100 - epicLeft, epicWidth))}%`,
-                                  "--progress": `${epic.progress}%`,
-                                } as React.CSSProperties}
-                              />
-                            </div>
-                            <div className="timeline-dates">
-                              <span>{epic.startDate}</span>
-                              <span>{epic.finishDate}</span>
+                          <div
+                            className="epic-gantt-panel"
+                            style={
+                              {
+                                "--gantt-days": days.length,
+                              } as React.CSSProperties
+                            }
+                          >
+                            <div className="gantt-scroll">
+                              <div className="gantt-week-header">
+                                {ganttWeeks.map((week, index) => (
+                                  <span key={week[0].toISOString()} style={{ gridColumn: `${index * 7 + 1} / span ${week.length}` }}>
+                                    WK {index + 1}
+                                    <small>{weekLabel(week[0])}</small>
+                                  </span>
+                                ))}
+                              </div>
+                              <div className="gantt-date-header">
+                                {days.map((day) => (
+                                  <span key={day.toISOString()}>{dayLabel(day)}</span>
+                                ))}
+                              </div>
+                              <div className="gantt-weekday-header">
+                                {days.map((day) => (
+                                  <span key={day.toISOString()}>{weekday(day)}</span>
+                                ))}
+                              </div>
+                              {renderGanttRow(epic, "epic-gantt-row")}
+                              {!isCollapsed ? epic.tasks.map((task) => renderGanttRow(task)) : null}
                             </div>
                           </div>
 
