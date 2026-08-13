@@ -12,6 +12,7 @@ import {
   Layout,
   Menu,
   Modal,
+  Progress,
   Select,
   Space,
   Table,
@@ -475,11 +476,21 @@ function getEpicProgress(tasks: Task[]) {
   if (!tasks.length) {
     return 0;
   }
-  const doneTasks = tasks.filter((task) => {
-    const value = task.type.trim().toLowerCase();
-    return value === "done" || task.type.trim() === "完成";
-  }).length;
+  const doneTasks = tasks.filter(isCompletedTask).length;
   return Math.round((doneTasks / tasks.length) * 100);
+}
+
+function isCompletedTask(task: Task) {
+  const value = task.type.trim().toLowerCase();
+  return value === "done" || task.type.trim() === "完成";
+}
+
+function getProjectProgress(epics: Epic[]) {
+  const tasks = epics.flatMap((epic) => epic.tasks);
+  if (!tasks.length) {
+    return 0;
+  }
+  return Math.round((tasks.filter(isCompletedTask).length / tasks.length) * 100);
 }
 
 function normalizeEpic(epic: Epic): Epic {
@@ -582,6 +593,7 @@ export default function Home() {
   const departmentSelectOptions = useMemo(() => toSelectOptions(settings.departments), [settings.departments]);
   const assigneeSelectOptions = useMemo(() => toSelectOptions(settings.agents), [settings.agents]);
   const holidayDates = useMemo(() => getHolidayDateSet(settings.holidays), [settings.holidays]);
+  const projectProgress = useMemo(() => getProjectProgress(epics), [epics]);
   const tableRows = useMemo<PlannerTableRow[]>(
     () =>
       epics.flatMap((epic) => {
@@ -1158,6 +1170,11 @@ export default function Home() {
                       allowClear={false}
                       inputReadOnly
                     />
+                  </Field>
+                  <Field label="完成度">
+                    <div className="project-progress">
+                      <Progress percent={projectProgress} size="small" />
+                    </div>
                   </Field>
                   <Button type="primary" icon={<PlusOutlined />} onClick={addEpic}>
                     新增 EPIC
