@@ -415,26 +415,29 @@ export default function Home() {
   const tableColumns = useMemo<TableProps<PlannerTableRow>["columns"]>(
     () => [
       {
+        title: "",
+        width: 48,
+        className: "toggle-cell",
+        render: (_, row) => {
+          if (row.rowKind !== "epic" || !row.item) {
+            return "";
+          }
+          const isCollapsed = collapsedEpicIds.has(row.epicId);
+          return (
+            <Button
+              aria-label={isCollapsed ? "展開 Tasks" : "收合 Tasks"}
+              icon={isCollapsed ? <RightOutlined /> : <DownOutlined />}
+              onClick={() => toggleEpic(row.epicId)}
+              size="small"
+              type="text"
+            />
+          );
+        },
+      },
+      {
         title: "WBS",
         width: tableWidths.wbs,
-        render: (_, row) => {
-          if (row.rowKind === "epic" && row.item) {
-            const isCollapsed = collapsedEpicIds.has(row.epicId);
-            return (
-              <Space className="wbs-toggle" size={2}>
-                <Button
-                  aria-label={isCollapsed ? "展開 Tasks" : "收合 Tasks"}
-                  icon={isCollapsed ? <RightOutlined /> : <DownOutlined />}
-                  onClick={() => toggleEpic(row.epicId)}
-                  size="small"
-                  type="text"
-                />
-                <span>{row.item.wbs}</span>
-              </Space>
-            );
-          }
-          return row.item?.wbs ?? "";
-        },
+        render: (_, row) => row.item?.wbs ?? "",
       },
       {
         title: "Priority",
@@ -791,15 +794,17 @@ export default function Home() {
                       const epicWidth = (getDuration(epic.startDate, epic.finishDate) / Math.max(1, days.length)) * 100;
                       return (
                         <article className="epic-card" key={epic.id}>
+                          <div className="epic-toggle-column">
+                            <Button
+                              aria-label={isCollapsed ? "展開 Tasks" : "收合 Tasks"}
+                              icon={isCollapsed ? <RightOutlined /> : <DownOutlined />}
+                              onClick={() => toggleEpic(epic.id)}
+                              size="small"
+                              type="text"
+                            />
+                          </div>
                           <div className="epic-card-main">
                             <div className="epic-title-row">
-                              <Button
-                                aria-label={isCollapsed ? "展開 Tasks" : "收合 Tasks"}
-                                icon={isCollapsed ? <RightOutlined /> : <DownOutlined />}
-                                onClick={() => toggleEpic(epic.id)}
-                                size="small"
-                                type="text"
-                              />
                               <Tag color="blue">EPIC {epic.wbs}</Tag>
                               <Button type="link" className="epic-title-button" icon={<EditOutlined />} onClick={() => setEditingEpicId(epic.id)}>
                                 {epic.title}

@@ -260,8 +260,21 @@ select {
   box-shadow: var(--shadow);
   display: grid;
   gap: 18px;
-  grid-template-columns: minmax(520px, 1fr) minmax(280px, 360px);
+  grid-template-columns: 46px minmax(520px, 1fr) minmax(280px, 360px);
   padding: 22px;
+}
+
+.epic-toggle-column {
+  align-items: flex-start;
+  border-right: 1px solid #edf0f7;
+  display: flex;
+  justify-content: center;
+  padding-top: 3px;
+}
+
+.epic-toggle-column .ant-btn,
+.planner-table .toggle-cell .ant-btn {
+  color: #7d879a;
 }
 
 .epic-card-main {
@@ -337,7 +350,7 @@ select {
   border-top: 1px solid #edf0f7;
   display: grid;
   gap: 10px;
-  grid-column: 1 / -1;
+  grid-column: 2 / -1;
   padding-top: 16px;
 }
 
@@ -467,6 +480,10 @@ select {
 
 .planner-table .ant-table-tbody > tr:hover > td {
   background: #f8fbff;
+}
+
+.planner-table .toggle-cell {
+  text-align: center;
 }
 
 .planner-table .description-cell .ant-btn {
@@ -732,6 +749,17 @@ select {
 
   .epic-card {
     grid-template-columns: 1fr;
+  }
+
+  .epic-toggle-column {
+    border-right: 0;
+    border-bottom: 1px solid #edf0f7;
+    justify-content: flex-start;
+    padding-bottom: 10px;
+  }
+
+  .task-list {
+    grid-column: 1;
   }
 
   .epic-fields,
