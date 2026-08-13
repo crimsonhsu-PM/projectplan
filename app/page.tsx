@@ -337,7 +337,7 @@ export default function Home() {
       },
       {
         title: "Priority",
-        width: 56,
+        width: 72,
         className: "department-cell",
         render: (_, row) => {
           if (row.rowKind === "task" && row.item) {
@@ -358,7 +358,7 @@ export default function Home() {
       },
       {
         title: "Epic/Task description",
-        width: 310,
+        width: 330,
         className: "description-cell",
         render: (_, row) => {
           if (row.rowKind === "section") {
@@ -387,7 +387,7 @@ export default function Home() {
       },
       {
         title: "Type",
-        width: 102,
+        width: 116,
         render: (_, row) => {
           if (!row.item) {
             return "";
@@ -411,7 +411,7 @@ export default function Home() {
       },
       {
         title: "Assignee",
-        width: 70,
+        width: 96,
         render: (_, row) => {
           if (!row.item) {
             return "";
@@ -435,7 +435,7 @@ export default function Home() {
       },
       {
         title: "Start date",
-        width: 84,
+        width: 104,
         render: (_, row) => {
           if (!row.item) {
             return "";
@@ -464,7 +464,7 @@ export default function Home() {
       },
       {
         title: "Finish date",
-        width: 84,
+        width: 104,
         render: (_, row) => {
           if (!row.item) {
             return "";
