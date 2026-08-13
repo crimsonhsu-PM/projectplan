@@ -531,8 +531,8 @@ select {
   font-size: 12px;
   font-weight: 800;
   gap: 8px;
-  grid-template-columns: 28px 48px minmax(140px, 1fr) 92px 108px 108px 32px;
-  min-width: 600px;
+  grid-template-columns: 28px 48px minmax(140px, 1fr) 92px 108px 108px 128px 128px 62px 32px;
+  min-width: 980px;
   padding: 0 10px;
 }
 
@@ -543,9 +543,9 @@ select {
   border-radius: 8px;
   display: grid;
   gap: 8px;
-  grid-template-columns: 28px 48px minmax(140px, 1fr) 92px 108px 108px 32px;
+  grid-template-columns: 28px 48px minmax(140px, 1fr) 92px 108px 108px 128px 128px 62px 32px;
   min-height: 54px;
-  min-width: 600px;
+  min-width: 980px;
   padding: 8px 10px;
 }
 
@@ -600,6 +600,22 @@ select {
 
 .task-field {
   min-width: 0;
+}
+
+.task-date-field {
+  min-width: 0;
+  width: 100%;
+}
+
+.task-date-field .ant-picker-input > input {
+  font-size: 13px;
+}
+
+.task-workdays {
+  color: #33394a;
+  font-size: 13px;
+  font-weight: 800;
+  text-align: center;
 }
 
 .sheet {
@@ -879,7 +895,7 @@ select {
   border-radius: 8px;
   display: grid;
   gap: 8px;
-  grid-template-columns: minmax(220px, 1.6fr) repeat(2, minmax(110px, 0.7fr)) repeat(2, 136px) 72px minmax(120px, 0.8fr) 72px;
+  grid-template-columns: minmax(220px, 1.6fr) repeat(2, minmax(110px, 0.7fr)) repeat(2, 136px) 62px 72px minmax(120px, 0.8fr) 72px;
   padding: 10px;
 }
 

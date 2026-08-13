@@ -192,6 +192,37 @@ function getDuration(startDate: string, finishDate: string) {
   return Math.max(1, Math.round((finish.getTime() - start.getTime()) / DAY_MS) + 1);
 }
 
+function getHolidayDateSet(holidays: HolidayRange[]) {
+  const dates = new Set<string>();
+  holidays.forEach((holiday) => {
+    const start = new Date(`${holiday.startDate}T00:00:00`);
+    const end = new Date(`${holiday.endDate}T00:00:00`);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      return;
+    }
+    for (let current = new Date(start); current <= end; current = addDays(current, 1)) {
+      dates.add(formatIso(current));
+    }
+  });
+  return dates;
+}
+
+function getWorkdayDuration(startDate: string, finishDate: string, holidayDates: Set<string>) {
+  const start = new Date(`${startDate}T00:00:00`);
+  const finish = new Date(`${finishDate}T00:00:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(finish.getTime()) || finish < start) {
+    return 0;
+  }
+  let duration = 0;
+  for (let current = new Date(start); current <= finish; current = addDays(current, 1)) {
+    const day = current.getDay();
+    if (day !== 0 && day !== 6 && !holidayDates.has(formatIso(current))) {
+      duration += 1;
+    }
+  }
+  return duration;
+}
+
 function addDays(date: Date, days: number) {
   const next = new Date(date);
   next.setDate(next.getDate() + days);
@@ -521,6 +552,7 @@ export default function Home() {
   const statusSelectOptions = useMemo(() => toColoredSelectOptions(settings.statuses), [settings.statuses]);
   const departmentSelectOptions = useMemo(() => toSelectOptions(settings.departments), [settings.departments]);
   const assigneeSelectOptions = useMemo(() => toSelectOptions(settings.agents), [settings.agents]);
+  const holidayDates = useMemo(() => getHolidayDateSet(settings.holidays), [settings.holidays]);
   const tableRows = useMemo<PlannerTableRow[]>(
     () =>
       epics.flatMap((epic) => {
@@ -1197,6 +1229,9 @@ export default function Home() {
                                 <span>部門</span>
                                 <span>狀態</span>
                                 <span>Agent</span>
+                                <span>Start</span>
+                                <span>Finish</span>
+                                <span>工作天數</span>
                                 <span />
                               </div>
                               {epic.tasks.map((task) => {
@@ -1251,6 +1286,23 @@ export default function Home() {
                                       value={task.assignee}
                                       onChange={(value) => updateTask(epic.id, task.id, { assignee: value })}
                                     />
+                                    <DatePicker
+                                      allowClear={false}
+                                      className="task-date-field"
+                                      format="YYYY-MM-DD"
+                                      inputReadOnly
+                                      value={dayjs(task.startDate)}
+                                      onChange={(date) => updateTask(epic.id, task.id, { startDate: date ? date.format("YYYY-MM-DD") : task.startDate })}
+                                    />
+                                    <DatePicker
+                                      allowClear={false}
+                                      className="task-date-field"
+                                      format="YYYY-MM-DD"
+                                      inputReadOnly
+                                      value={dayjs(task.finishDate)}
+                                      onChange={(date) => updateTask(epic.id, task.id, { finishDate: date ? date.format("YYYY-MM-DD") : task.finishDate })}
+                                    />
+                                    <span className="task-workdays">{getWorkdayDuration(task.startDate, task.finishDate, holidayDates)}</span>
                                     <Button danger type="text" icon={<DeleteOutlined />} onClick={() => deleteTask(epic.id, task.id)} aria-label={`刪除 ${task.title}`} />
                                   </div>
                                 );
@@ -1420,6 +1472,7 @@ export default function Home() {
                     }
                     aria-label={`${task.wbs} 結束日期`}
                   />
+                  <span className="task-workdays">{getWorkdayDuration(task.startDate, task.finishDate, holidayDates)} 天</span>
                   <InputNumber
                     min="0"
                     max="100"
