@@ -269,6 +269,17 @@ function normalizeTask(task: Task): Task {
   };
 }
 
+function getEpicProgress(tasks: Task[]) {
+  if (!tasks.length) {
+    return 0;
+  }
+  const doneTasks = tasks.filter((task) => {
+    const value = task.type.trim().toLowerCase();
+    return value === "done" || task.type.trim() === "完成";
+  }).length;
+  return Math.round((doneTasks / tasks.length) * 100);
+}
+
 function normalizeEpic(epic: Epic): Epic {
   const tasks = epic.tasks.map(normalizeTask);
   return {
@@ -276,7 +287,7 @@ function normalizeEpic(epic: Epic): Epic {
     department: epic.department || "PM",
     tasks,
     duration: getDuration(epic.startDate, epic.finishDate),
-    progress: Math.min(100, Math.max(0, Number(epic.progress) || 0)),
+    progress: getEpicProgress(tasks),
   };
 }
 
@@ -632,12 +643,10 @@ export default function Home() {
     setEpics((current) =>
       current.map((epic) =>
         epic.id === epicId
-          ? {
+          ? normalizeEpic({
               ...epic,
-              tasks: epic.tasks.map((task) =>
-                task.id === taskId ? normalizeTask({ ...task, ...patch }) : task,
-              ),
-            }
+              tasks: epic.tasks.map((task) => (task.id === taskId ? normalizeTask({ ...task, ...patch }) : task)),
+            })
           : epic,
       ),
     );
@@ -671,7 +680,7 @@ export default function Home() {
     setEpics((current) =>
       current.map((epic) =>
         epic.id === epicId
-          ? {
+          ? normalizeEpic({
               ...epic,
               tasks: [
                 ...epic.tasks,
@@ -682,7 +691,7 @@ export default function Home() {
                   type: settings.types[0] ?? "待確認",
                 },
               ],
-            }
+            })
           : epic,
       ),
     );
@@ -1011,13 +1020,13 @@ export default function Home() {
                   }
                 />
               </Field>
-              <Field label="Progress">
+              <Field label="完成度">
                 <InputNumber
+                  disabled
                   min="0"
                   max="100"
                   value={editingEpic.progress}
                   addonAfter="%"
-                  onChange={(value) => updateEpic(editingEpic.id, { progress: Number(value) })}
                 />
               </Field>
             </div>
