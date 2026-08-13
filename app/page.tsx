@@ -1298,7 +1298,6 @@ export default function Home() {
                                 {ganttWeeks.map((week, index) => (
                                   <span key={week[0].toISOString()} style={{ gridColumn: `${index * 7 + 1} / span ${week.length}` }}>
                                     WK {index + 1}
-                                    <small>{weekLabel(week[0])}</small>
                                   </span>
                                 ))}
                               </div>
