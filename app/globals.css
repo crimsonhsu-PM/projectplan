@@ -289,7 +289,11 @@ select {
   box-shadow: var(--shadow);
   display: grid;
   gap: 18px;
-  grid-template-columns: 46px minmax(520px, 1fr) minmax(520px, 0.95fr);
+  grid-template-areas:
+    "toggle main"
+    ". tasks"
+    ". gantt";
+  grid-template-columns: 46px minmax(0, 1fr);
   padding: 22px;
 }
 
@@ -297,6 +301,7 @@ select {
   align-items: flex-start;
   border-right: 1px solid #edf0f7;
   display: flex;
+  grid-area: toggle;
   justify-content: center;
   padding-top: 3px;
 }
@@ -307,6 +312,7 @@ select {
 }
 
 .epic-card-main {
+  grid-area: main;
   min-width: 0;
 }
 
@@ -346,8 +352,7 @@ select {
 .epic-gantt-panel {
   background: #f7f9fd;
   border-radius: 8px;
-  grid-column: 3;
-  grid-row: 1 / span 2;
+  grid-area: gantt;
   min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
@@ -439,7 +444,9 @@ select {
   border-top: 1px solid #edf0f7;
   display: grid;
   gap: 10px;
-  grid-column: 2;
+  grid-area: tasks;
+  min-width: 0;
+  overflow-x: auto;
   padding-top: 16px;
 }
 
@@ -461,7 +468,8 @@ select {
   font-size: 12px;
   font-weight: 800;
   gap: 10px;
-  grid-template-columns: 64px minmax(260px, 1fr) 150px 170px 170px 40px;
+  grid-template-columns: 56px minmax(180px, 1fr) 120px 140px 140px 36px;
+  min-width: 720px;
   padding: 0 10px;
 }
 
@@ -472,8 +480,9 @@ select {
   border-radius: 8px;
   display: grid;
   gap: 10px;
-  grid-template-columns: 64px minmax(260px, 1fr) 150px 170px 170px 40px;
+  grid-template-columns: 56px minmax(180px, 1fr) 120px 140px 140px 36px;
   min-height: 54px;
+  min-width: 720px;
   padding: 8px 10px;
 }
 
@@ -496,6 +505,10 @@ select {
 
 .task-field .ant-select-selector {
   background: #ffffff !important;
+}
+
+.task-field {
+  min-width: 0;
 }
 
 .sheet {
@@ -836,6 +849,11 @@ select {
   }
 
   .epic-card {
+    grid-template-areas:
+      "toggle"
+      "main"
+      "tasks"
+      "gantt";
     grid-template-columns: 1fr;
   }
 
@@ -847,11 +865,11 @@ select {
   }
 
   .task-list {
-    grid-column: 1;
+    grid-column: auto;
   }
 
   .epic-gantt-panel {
-    grid-column: 1;
+    grid-column: auto;
     grid-row: auto;
   }
 
