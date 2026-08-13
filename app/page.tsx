@@ -875,8 +875,6 @@ export default function Home() {
                                 </Button>
                               </div>
                               {epic.tasks.map((task) => {
-                                const taskLeft = (getOffset(task.startDate) / Math.max(1, days.length)) * 100;
-                                const taskWidth = (getDuration(task.startDate, task.finishDate) / Math.max(1, days.length)) * 100;
                                 return (
                                   <div className="task-item" key={task.id}>
                                     <div className="task-identity">
@@ -905,14 +903,6 @@ export default function Home() {
                                       value={task.assignee}
                                       onChange={(value) => updateTask(epic.id, task.id, { assignee: value })}
                                     />
-                                    <div className="task-mini-timeline">
-                                      <span
-                                        style={{
-                                          left: `${Math.min(96, taskLeft)}%`,
-                                          width: `${Math.max(4, Math.min(100 - taskLeft, taskWidth))}%`,
-                                        }}
-                                      />
-                                    </div>
                                   </div>
                                 );
                               })}
