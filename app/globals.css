@@ -138,13 +138,15 @@ select {
   background: var(--white);
   border: 0;
   border-radius: 8px;
+  box-sizing: border-box;
   box-shadow: var(--shadow);
   display: grid;
   gap: 18px;
   grid-template-columns: minmax(280px, 1fr) 220px 190px 160px;
-  margin: 0 auto 26px;
-  max-width: 1680px;
+  margin: 0 0 26px;
+  min-width: 1450px;
   padding: 22px;
+  width: max(100%, 1450px);
 }
 
 .project-title span,
@@ -1168,6 +1170,8 @@ select {
 
   .project-header {
     grid-template-columns: 1fr;
+    min-width: 0;
+    width: auto;
   }
 
   .project-title,
