@@ -25,7 +25,6 @@ import {
   DeleteOutlined,
   DownOutlined,
   EditOutlined,
-  MenuOutlined,
   PlusOutlined,
   ProjectOutlined,
   RightOutlined,
@@ -61,10 +60,17 @@ type ProjectMeta = {
   wk: string;
 };
 
+type HolidayRange = {
+  id: string;
+  startDate: string;
+  endDate: string;
+  note: string;
+};
+
 type AppSettings = {
   departments: string[];
   agents: string[];
-  holidays: string[];
+  holidays: HolidayRange[];
   types: string[];
   statuses: string[];
 };
@@ -85,7 +91,12 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const defaultSettings: AppSettings = {
   departments: ["企劃", "前端", "後端", "QA", "PM"],
   agents: ["Simon", "PM", "Clara", "Anna", "Della", "shock", "GMS", "Will"],
-  holidays: ["2026-01-01", "2026-02-16", "2026-02-17", "2026-02-18", "2026-04-03", "2026-06-19"],
+  holidays: [
+    { id: "holiday-2026-01-01", startDate: "2026-01-01", endDate: "2026-01-01", note: "元旦" },
+    { id: "holiday-2026-02-16", startDate: "2026-02-16", endDate: "2026-02-18", note: "春節" },
+    { id: "holiday-2026-04-03", startDate: "2026-04-03", endDate: "2026-04-03", note: "兒童節補假" },
+    { id: "holiday-2026-06-19", startDate: "2026-06-19", endDate: "2026-06-19", note: "端午節" },
+  ],
   types: ["全新開發", "優化", "移植開發", "Done", "QA進測前", "待確認"],
   statuses: ["待辦", "進行中", "完成", "擱置"],
 };
@@ -112,16 +123,16 @@ const sampleEpics: Epic[] = [
     rm: "",
     progress: 74,
     tasks: [
-      row("task-24-1", "24.1", "企劃規格書", "Done", "Simon", "2026-05-05", "2026-05-20", "", 100),
-      row("task-24-2", "24.2", "overview", "Done", "Simon", "2026-05-05", "2026-05-20", "", 100),
-      row("task-24-3", "24.3", "動畫清單", "Done", "Simon", "2026-05-05", "2026-05-20", "", 100),
-      row("task-24-4", "24.4", "音樂清單", "Done", "Simon", "2026-05-05", "2026-05-20", "", 100),
-      row("task-24-5", "24.5", "GameID、英文、中文", "Done", "Simon", "2026-05-05", "2026-05-20", "", 100),
-      row("task-24-6", "24.6", "建制專案Git（遊戲Git、DII Git）", "Done", "Simon", "2026-06-16", "2026-06-16", "", 100),
-      row("task-24-7", "24.7", "jira 項目", "Done", "Simon", "2026-06-16", "2026-06-16", "", 100),
-      row("task-24-8", "24.8", "LED燈條表演規格", "Done", "Simon", "2026-05-05", "2026-05-20", "", 100),
-      row("task-24-9", "24.9", "外包音效", "待確認", "PM", "2026-06-17", "2026-06-26", "待排程", 20),
-      row("task-24-10", "24.10", "Demo會議", "Done", "Simon", "2026-06-26", "2026-06-26", "", 100),
+      row("task-24-1", "24.1", "企劃規格書", "完成", "Simon", "2026-05-05", "2026-05-20", "", 100),
+      row("task-24-2", "24.2", "overview", "完成", "Simon", "2026-05-05", "2026-05-20", "", 100),
+      row("task-24-3", "24.3", "動畫清單", "完成", "Simon", "2026-05-05", "2026-05-20", "", 100),
+      row("task-24-4", "24.4", "音樂清單", "完成", "Simon", "2026-05-05", "2026-05-20", "", 100),
+      row("task-24-5", "24.5", "GameID、英文、中文", "完成", "Simon", "2026-05-05", "2026-05-20", "", 100),
+      row("task-24-6", "24.6", "建制專案Git（遊戲Git、DII Git）", "完成", "Simon", "2026-06-16", "2026-06-16", "", 100),
+      row("task-24-7", "24.7", "jira 項目", "完成", "Simon", "2026-06-16", "2026-06-16", "", 100),
+      row("task-24-8", "24.8", "LED燈條表演規格", "完成", "Simon", "2026-05-05", "2026-05-20", "", 100),
+      row("task-24-9", "24.9", "外包音效", "待辦", "PM", "2026-06-17", "2026-06-26", "待排程", 20),
+      row("task-24-10", "24.10", "Demo會議", "完成", "Simon", "2026-06-26", "2026-06-26", "", 100),
     ],
   },
 ];
@@ -259,11 +270,49 @@ function normalizeSettingList(values: unknown, fallback: string[]) {
   return normalized.length ? Array.from(new Set(normalized)) : fallback;
 }
 
+function normalizeHolidayRanges(values: unknown, fallback: HolidayRange[]) {
+  if (!Array.isArray(values)) {
+    return fallback;
+  }
+  const normalized = values
+    .map((value, index) => {
+      if (typeof value === "string") {
+        const cleanDate = value.match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? "";
+        if (!cleanDate) {
+          return null;
+        }
+        return {
+          id: `holiday-${cleanDate}-${index}`,
+          startDate: cleanDate,
+          endDate: cleanDate,
+          note: "",
+        };
+      }
+      if (value && typeof value === "object") {
+        const item = value as Partial<HolidayRange>;
+        const startDate = String(item.startDate ?? "").match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? "";
+        const endDate = String(item.endDate ?? item.startDate ?? "").match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? "";
+        if (!startDate || !endDate) {
+          return null;
+        }
+        return {
+          id: String(item.id ?? `holiday-${startDate}-${index}`),
+          startDate,
+          endDate,
+          note: String(item.note ?? ""),
+        };
+      }
+      return null;
+    })
+    .filter((value): value is HolidayRange => Boolean(value));
+  return normalized.length ? normalized : fallback;
+}
+
 function normalizeSettings(settings?: Partial<AppSettings>): AppSettings {
   return {
     departments: normalizeSettingList(settings?.departments, defaultSettings.departments),
     agents: normalizeSettingList(settings?.agents, defaultSettings.agents),
-    holidays: normalizeSettingList(settings?.holidays, defaultSettings.holidays),
+    holidays: normalizeHolidayRanges(settings?.holidays, defaultSettings.holidays),
     types: normalizeSettingList(settings?.types, defaultSettings.types),
     statuses: normalizeSettingList(settings?.statuses, defaultSettings.statuses),
   };
@@ -286,9 +335,12 @@ function weekday(date: Date) {
 }
 
 function normalizeTask(task: Task): Task {
+  const rawTaskType = task.type.trim();
+  const taskType = rawTaskType.toLowerCase() === "done" ? "完成" : rawTaskType === "待確認" ? "待辦" : task.type;
   return {
     ...task,
     department: task.department || "企劃",
+    type: taskType,
     duration: getDuration(task.startDate, task.finishDate),
     progress: Math.min(100, Math.max(0, Number(task.progress) || 0)),
   };
@@ -321,7 +373,7 @@ function blankTask(index: number, epicWbs: string): Task {
     `task-${Date.now()}-${index}`,
     `${epicWbs}.${index}`,
     "新任務",
-    "待確認",
+    "待辦",
     "Simon",
     defaultProject.startDate,
     defaultProject.startDate,
@@ -382,6 +434,7 @@ export default function Home() {
 
   const editingEpic = epics.find((epic) => epic.id === editingEpicId) ?? null;
   const typeSelectOptions = useMemo(() => toSelectOptions(settings.types), [settings.types]);
+  const statusSelectOptions = useMemo(() => toSelectOptions(settings.statuses), [settings.statuses]);
   const departmentSelectOptions = useMemo(() => toSelectOptions(settings.departments), [settings.departments]);
   const assigneeSelectOptions = useMemo(() => toSelectOptions(settings.agents), [settings.agents]);
   const tableRows = useMemo<PlannerTableRow[]>(
@@ -685,11 +738,17 @@ export default function Home() {
   }
 
   function addEpic() {
+    const baseEpic = blankEpic(epics.length + 1);
+    const startDate = project.startDate;
+    const finishDate = formatIso(addDays(new Date(`${startDate}T00:00:00`), 14));
     const epic = {
-      ...blankEpic(epics.length + 1),
+      ...baseEpic,
       assignee: settings.agents[0] ?? "Simon",
       department: settings.departments[0] ?? "PM",
+      startDate,
+      finishDate,
       type: settings.types[0] ?? "全新開發",
+      tasks: baseEpic.tasks.map((task) => ({ ...task, assignee: settings.agents[0] ?? "Simon", startDate, finishDate: startDate })),
     };
     setEpics((current) => [...current, epic]);
     setCollapsedEpicIds((current) => {
@@ -700,12 +759,38 @@ export default function Home() {
     setEditingEpicId(epic.id);
   }
 
-  function updateSettingsList(key: keyof AppSettings, values: string[]) {
+  function deleteEpic(epicId: string) {
+    const epic = epics.find((item) => item.id === epicId);
+    Modal.confirm({
+      title: "刪除 EPIC",
+      content: `確定要刪除「${epic?.title ?? "此 EPIC"}」嗎？此操作會一併刪除底下 Tasks。`,
+      okText: "刪除",
+      okButtonProps: { danger: true },
+      cancelText: "取消",
+      onOk: () => {
+        setEpics((current) => current.filter((item) => item.id !== epicId));
+        setEditingEpicId((current) => (current === epicId ? null : current));
+      },
+    });
+  }
+
+  function updateSettingsList(key: "departments" | "agents" | "types" | "statuses", values: string[]) {
     setSettings((current) => ({ ...current, [key]: values }));
   }
 
   function addHoliday() {
-    setSettings((current) => ({ ...current, holidays: [...current.holidays, formatIso(new Date())] }));
+    const today = formatIso(new Date());
+    setSettings((current) => ({
+      ...current,
+      holidays: [
+        ...current.holidays,
+        { id: `holiday-${Date.now()}`, startDate: today, endDate: today, note: "新增假日" },
+      ],
+    }));
+  }
+
+  function updateHolidays(holidays: HolidayRange[]) {
+    setSettings((current) => ({ ...current, holidays }));
   }
 
   function addTask(epicId: string) {
@@ -720,7 +805,7 @@ export default function Home() {
                   ...blankTask(epic.tasks.length + 1, epic.wbs),
                   assignee: settings.agents[0] ?? "Simon",
                   department: settings.departments[0] ?? "企劃",
-                  type: settings.types[0] ?? "待確認",
+                  type: settings.statuses[0] ?? "待辦",
                 },
               ],
             })
@@ -732,7 +817,7 @@ export default function Home() {
   function deleteTask(epicId: string, taskId: string) {
     setEpics((current) =>
       current.map((epic) =>
-        epic.id === epicId ? { ...epic, tasks: epic.tasks.filter((task) => task.id !== taskId) } : epic,
+        epic.id === epicId ? normalizeEpic({ ...epic, tasks: epic.tasks.filter((task) => task.id !== taskId) }) : epic,
       ),
     );
   }
@@ -805,11 +890,7 @@ export default function Home() {
             />
           </Layout.Sider>
           <Layout.Content className="backend-content">
-            <header className="topbar">
-              <Space size={12}>
-                <Button type="text" icon={<MenuOutlined />} />
-                <Typography.Text type="secondary">隱藏菜單</Typography.Text>
-              </Space>
+            <header className="topbar topbar-end">
               <Space size={18}>
                 <BellOutlined className="topbar-icon" />
                 <Avatar size={38} icon={<UserOutlined />} />
@@ -820,7 +901,13 @@ export default function Home() {
               <>
                 <section className="project-header" aria-label="專案資訊">
                   <div className="project-title">
-                    <Typography.Title level={3}>{project.projectName}</Typography.Title>
+                    <Input
+                      aria-label="專案名稱"
+                      className="project-name-input"
+                      value={project.projectName}
+                      variant="borderless"
+                      onChange={(event) => setProject({ ...project, projectName: event.target.value })}
+                    />
                   </div>
                   <Field label="Project type">
                     <Input
@@ -840,6 +927,9 @@ export default function Home() {
                   <Field label="WK">
                     <Input value={project.wk} onChange={(event) => setProject({ ...project, wk: event.target.value })} />
                   </Field>
+                  <Button type="primary" icon={<PlusOutlined />} onClick={addEpic}>
+                    新增 EPIC
+                  </Button>
                 </section>
 
                 <section className="project-board" aria-label="Epic 與 Task 專案列表">
@@ -848,9 +938,6 @@ export default function Home() {
                       <Typography.Title level={4}>Epic 工作列表</Typography.Title>
                       <Typography.Text type="secondary">以卡片管理 Epic、Task 與排程區間。</Typography.Text>
                     </div>
-                    <Button type="primary" icon={<PlusOutlined />} onClick={addEpic}>
-                      新增 EPIC
-                    </Button>
                   </div>
 
                   <div className="epic-list">
@@ -873,6 +960,7 @@ export default function Home() {
                               <Button type="link" className="epic-title-button" icon={<EditOutlined />} onClick={() => setEditingEpicId(epic.id)}>
                                 {epic.title}
                               </Button>
+                              <Button danger type="text" icon={<DeleteOutlined />} onClick={() => deleteEpic(epic.id)} aria-label={`刪除 ${epic.title}`} />
                             </div>
 
                             <div className="epic-fields">
@@ -949,17 +1037,24 @@ export default function Home() {
                                   新增 Task
                                 </Button>
                               </div>
+                              <div className="task-columns-header">
+                                <span>WBS</span>
+                                <span>Task</span>
+                                <span>部門</span>
+                                <span>狀態</span>
+                                <span>Agent</span>
+                                <span />
+                              </div>
                               {epic.tasks.map((task) => {
                                 return (
                                   <div className="task-item" key={task.id}>
-                                    <div className="task-identity">
-                                      <span className="task-wbs">{task.wbs}</span>
-                                      <Input
-                                        value={task.title}
-                                        variant="borderless"
-                                        onChange={(event) => updateTask(epic.id, task.id, { title: event.target.value })}
-                                      />
-                                    </div>
+                                    <span className="task-wbs">{task.wbs}</span>
+                                    <Input
+                                      className="task-title-input"
+                                      value={task.title}
+                                      variant="borderless"
+                                      onChange={(event) => updateTask(epic.id, task.id, { title: event.target.value })}
+                                    />
                                     <Select
                                       className="task-field"
                                       options={departmentSelectOptions}
@@ -968,7 +1063,7 @@ export default function Home() {
                                     />
                                     <Select
                                       className="task-field"
-                                      options={typeSelectOptions}
+                                      options={statusSelectOptions}
                                       value={task.type}
                                       onChange={(value) => updateTask(epic.id, task.id, { type: value })}
                                     />
@@ -978,6 +1073,7 @@ export default function Home() {
                                       value={task.assignee}
                                       onChange={(value) => updateTask(epic.id, task.id, { assignee: value })}
                                     />
+                                    <Button danger type="text" icon={<DeleteOutlined />} onClick={() => deleteTask(epic.id, task.id)} aria-label={`刪除 ${task.title}`} />
                                   </div>
                                 );
                               })}
@@ -1011,7 +1107,7 @@ export default function Home() {
                   <HolidaySettingsCard
                     values={settings.holidays}
                     onAdd={addHoliday}
-                    onChange={(values) => updateSettingsList("holidays", values)}
+                    onChange={updateHolidays}
                   />
                   <EditableOptionCard
                     title="Type設定"
@@ -1045,6 +1141,9 @@ export default function Home() {
                 <Tag color="blue">EPIC {editingEpic.wbs}</Tag>
                 <Typography.Title level={3}>{editingEpic.title}</Typography.Title>
               </div>
+              <Button danger icon={<DeleteOutlined />} onClick={() => deleteEpic(editingEpic.id)}>
+                刪除 EPIC
+              </Button>
             </div>
 
             <div className="form-grid">
@@ -1114,7 +1213,7 @@ export default function Home() {
                     aria-label={`${task.wbs} 任務名稱`}
                   />
                   <Select
-                    options={typeSelectOptions}
+                    options={statusSelectOptions}
                     value={task.type}
                     onChange={(value) => updateTask(editingEpic.id, task.id, { type: value })}
                   />
@@ -1189,7 +1288,7 @@ function EditableOptionCard({
       className="settings-card"
       title={title}
       extra={
-        <Button size="small" icon={<PlusOutlined />} onClick={() => onChange([...values, "新增項目"])}>
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => onChange([...values, "新增項目"])}>
           新增
         </Button>
       }
@@ -1211,12 +1310,12 @@ function HolidaySettingsCard({
   onAdd,
   onChange,
 }: {
-  values: string[];
+  values: HolidayRange[];
   onAdd: () => void;
-  onChange: (values: string[]) => void;
+  onChange: (values: HolidayRange[]) => void;
 }) {
-  function updateValue(index: number, value: string) {
-    onChange(values.map((item, itemIndex) => (itemIndex === index ? value : item)));
+  function updateValue(index: number, patch: Partial<HolidayRange>) {
+    onChange(values.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item)));
   }
 
   function deleteValue(index: number) {
@@ -1228,23 +1327,35 @@ function HolidaySettingsCard({
       className="settings-card"
       title="國定假日設定"
       extra={
-        <Button size="small" icon={<PlusOutlined />} onClick={onAdd}>
+        <Button type="primary" icon={<PlusOutlined />} onClick={onAdd}>
           新增
         </Button>
       }
     >
       <div className="settings-list">
         {values.map((value, index) => (
-          <Space.Compact className="settings-row" key={`holiday-${index}`}>
-            <DatePicker
+          <div className="holiday-row" key={value.id}>
+            <DatePicker.RangePicker
               allowClear={false}
               inputReadOnly
-              value={dayjs(value)}
-              onChange={(date) => updateValue(index, date ? date.format("YYYY-MM-DD") : value)}
+              value={[dayjs(value.startDate), dayjs(value.endDate)]}
+              onChange={(dates) => {
+                if (!dates?.[0] || !dates?.[1]) {
+                  return;
+                }
+                updateValue(index, {
+                  startDate: dates[0].format("YYYY-MM-DD"),
+                  endDate: dates[1].format("YYYY-MM-DD"),
+                });
+              }}
             />
-            <Input value={value} onChange={(event) => updateValue(index, event.target.value)} />
-            <Button danger icon={<DeleteOutlined />} onClick={() => deleteValue(index)} aria-label={`刪除 ${value}`} />
-          </Space.Compact>
+            <Input
+              value={value.note}
+              placeholder="備註"
+              onChange={(event) => updateValue(index, { note: event.target.value })}
+            />
+            <Button danger icon={<DeleteOutlined />} onClick={() => deleteValue(index)} aria-label={`刪除 ${value.note || value.startDate}`} />
+          </div>
         ))}
       </div>
     </Card>
