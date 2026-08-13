@@ -467,9 +467,9 @@ select {
   display: grid;
   font-size: 12px;
   font-weight: 800;
-  gap: 10px;
-  grid-template-columns: 56px minmax(180px, 1fr) 120px 140px 140px 36px;
-  min-width: 720px;
+  gap: 8px;
+  grid-template-columns: 48px minmax(150px, 1fr) 96px 112px 112px 32px;
+  min-width: 560px;
   padding: 0 10px;
 }
 
@@ -479,10 +479,10 @@ select {
   border: 1px solid #edf0f7;
   border-radius: 8px;
   display: grid;
-  gap: 10px;
-  grid-template-columns: 56px minmax(180px, 1fr) 120px 140px 140px 36px;
+  gap: 8px;
+  grid-template-columns: 48px minmax(150px, 1fr) 96px 112px 112px 32px;
   min-height: 54px;
-  min-width: 720px;
+  min-width: 560px;
   padding: 8px 10px;
 }
 
@@ -505,6 +505,7 @@ select {
 
 .task-field .ant-select-selector {
   background: #ffffff !important;
+  padding-inline: 10px 22px !important;
 }
 
 .task-field {
