@@ -344,7 +344,7 @@ select {
 }
 
 .gantt-hover-line {
-  background: #111827;
+  background: #0d5bff;
   bottom: 22px;
   pointer-events: none;
   position: absolute;
