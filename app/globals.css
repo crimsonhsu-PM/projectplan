@@ -290,10 +290,10 @@ select {
   display: grid;
   gap: 18px;
   grid-template-areas:
-    "toggle main"
-    ". tasks"
-    ". gantt";
-  grid-template-columns: 46px minmax(0, 1fr);
+    "toggle gantt main"
+    ". gantt tasks";
+  grid-template-columns: 46px minmax(430px, 0.82fr) minmax(560px, 1fr);
+  overflow-x: auto;
   padding: 22px;
 }
 
@@ -852,9 +852,9 @@ select {
   .epic-card {
     grid-template-areas:
       "toggle"
+      "gantt"
       "main"
-      "tasks"
-      "gantt";
+      "tasks";
     grid-template-columns: 1fr;
   }
 
