@@ -468,8 +468,8 @@ select {
   font-size: 12px;
   font-weight: 800;
   gap: 8px;
-  grid-template-columns: 48px minmax(150px, 1fr) 96px 112px 112px 32px;
-  min-width: 560px;
+  grid-template-columns: 28px 48px minmax(140px, 1fr) 92px 108px 108px 32px;
+  min-width: 600px;
   padding: 0 10px;
 }
 
@@ -480,10 +480,37 @@ select {
   border-radius: 8px;
   display: grid;
   gap: 8px;
-  grid-template-columns: 48px minmax(150px, 1fr) 96px 112px 112px 32px;
+  grid-template-columns: 28px 48px minmax(140px, 1fr) 92px 108px 108px 32px;
   min-height: 54px;
-  min-width: 560px;
+  min-width: 600px;
   padding: 8px 10px;
+}
+
+.task-item-dragging {
+  border-color: #0d5bff;
+  box-shadow: 0 8px 20px rgba(13, 91, 255, 0.12);
+  opacity: 0.72;
+}
+
+.task-drag-handle {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: #98a2b3;
+  cursor: grab;
+  display: flex;
+  height: 32px;
+  justify-content: center;
+  padding: 0;
+  width: 24px;
+}
+
+.task-drag-handle:active {
+  cursor: grabbing;
+}
+
+.task-drag-handle:hover {
+  color: #0d5bff;
 }
 
 .task-identity {

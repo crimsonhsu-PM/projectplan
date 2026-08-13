@@ -25,6 +25,7 @@ import {
   DeleteOutlined,
   DownOutlined,
   EditOutlined,
+  HolderOutlined,
   PlusOutlined,
   ProjectOutlined,
   RightOutlined,
@@ -408,6 +409,7 @@ export default function Home() {
   const [activePage, setActivePage] = useState<"planner" | "settings">("planner");
   const [editingEpicId, setEditingEpicId] = useState<string | null>(null);
   const [collapsedEpicIds, setCollapsedEpicIds] = useState<Set<string>>(new Set());
+  const [draggingTask, setDraggingTask] = useState<{ epicId: string; taskId: string } | null>(null);
   const [hasLoaded, setHasLoaded] = useState(false);
 
   useEffect(() => {
@@ -737,6 +739,32 @@ export default function Home() {
     );
   }
 
+  function renumberTasks(tasks: Task[], epicWbs: string) {
+    return tasks.map((task, index) => ({ ...task, wbs: `${epicWbs}.${index + 1}` }));
+  }
+
+  function reorderTask(epicId: string, sourceTaskId: string, targetTaskId: string) {
+    if (sourceTaskId === targetTaskId) {
+      return;
+    }
+    setEpics((current) =>
+      current.map((epic) => {
+        if (epic.id !== epicId) {
+          return epic;
+        }
+        const sourceIndex = epic.tasks.findIndex((task) => task.id === sourceTaskId);
+        const targetIndex = epic.tasks.findIndex((task) => task.id === targetTaskId);
+        if (sourceIndex < 0 || targetIndex < 0) {
+          return epic;
+        }
+        const nextTasks = [...epic.tasks];
+        const [movingTask] = nextTasks.splice(sourceIndex, 1);
+        nextTasks.splice(targetIndex, 0, movingTask);
+        return normalizeEpic({ ...epic, tasks: renumberTasks(nextTasks, epic.wbs) });
+      }),
+    );
+  }
+
   function addEpic() {
     const baseEpic = blankEpic(epics.length + 1);
     const startDate = project.startDate;
@@ -817,7 +845,9 @@ export default function Home() {
   function deleteTask(epicId: string, taskId: string) {
     setEpics((current) =>
       current.map((epic) =>
-        epic.id === epicId ? normalizeEpic({ ...epic, tasks: epic.tasks.filter((task) => task.id !== taskId) }) : epic,
+        epic.id === epicId
+          ? normalizeEpic({ ...epic, tasks: renumberTasks(epic.tasks.filter((task) => task.id !== taskId), epic.wbs) })
+          : epic,
       ),
     );
   }
@@ -1028,6 +1058,7 @@ export default function Home() {
                                 </Button>
                               </div>
                               <div className="task-columns-header">
+                                <span />
                                 <span>WBS</span>
                                 <span>Task</span>
                                 <span>部門</span>
@@ -1037,7 +1068,30 @@ export default function Home() {
                               </div>
                               {epic.tasks.map((task) => {
                                 return (
-                                  <div className="task-item" key={task.id}>
+                                  <div
+                                    className={`task-item ${draggingTask?.taskId === task.id ? "task-item-dragging" : ""}`}
+                                    key={task.id}
+                                    onDragOver={(event) => event.preventDefault()}
+                                    onDrop={() => {
+                                      if (draggingTask?.epicId === epic.id) {
+                                        reorderTask(epic.id, draggingTask.taskId, task.id);
+                                      }
+                                      setDraggingTask(null);
+                                    }}
+                                  >
+                                    <button
+                                      aria-label={`拖曳 ${task.title} 調整順序`}
+                                      className="task-drag-handle"
+                                      draggable
+                                      onDragEnd={() => setDraggingTask(null)}
+                                      onDragStart={(event) => {
+                                        event.dataTransfer.effectAllowed = "move";
+                                        setDraggingTask({ epicId: epic.id, taskId: task.id });
+                                      }}
+                                      type="button"
+                                    >
+                                      <HolderOutlined />
+                                    </button>
                                     <span className="task-wbs">{task.wbs}</span>
                                     <Input
                                       className="task-title-input"
