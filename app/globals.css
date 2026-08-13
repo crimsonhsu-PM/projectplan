@@ -169,6 +169,32 @@ select {
   text-overflow: ellipsis;
 }
 
+.planner-table .cell-control {
+  background: transparent;
+  min-height: 30px;
+  width: 100%;
+}
+
+.planner-table .cell-control.ant-input {
+  padding-inline: 0;
+}
+
+.planner-table .cell-control .ant-select-selector {
+  padding-inline: 0 !important;
+}
+
+.planner-table .cell-date .ant-picker-input > input {
+  font-weight: inherit;
+}
+
+.planner-table .ant-table-tbody > tr.epic-row .cell-control {
+  font-weight: 700;
+}
+
+.planner-table .department-cell .ant-select-selection-item {
+  color: #1f5f3f;
+}
+
 .planner-table .wbs-toggle {
   align-items: center;
   display: inline-flex;

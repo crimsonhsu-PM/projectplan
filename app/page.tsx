@@ -29,6 +29,7 @@ import dayjs from "dayjs";
 type Task = {
   id: string;
   wbs: string;
+  department: string;
   title: string;
   type: string;
   assignee: string;
@@ -65,8 +66,10 @@ const STORAGE_KEY = "rsg-project-plan-v2";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const typeOptions = ["全新開發", "優化", "移植開發", "Done", "QA進測前", "待確認"];
+const departmentOptions = ["企劃", "前端", "後端", "QA", "PM"];
 const assignees = ["Simon", "PM", "Clara", "Anna", "Della", "shock", "GMS", "Will"];
 const typeSelectOptions = typeOptions.map((type) => ({ label: type, value: type }));
+const departmentSelectOptions = departmentOptions.map((department) => ({ label: department, value: department }));
 const assigneeSelectOptions = assignees.map((name) => ({ label: name, value: name }));
 
 const defaultProject: ProjectMeta = {
@@ -80,6 +83,7 @@ const sampleEpics: Epic[] = [
   {
     id: "epic-24",
     wbs: "24",
+    department: "PM",
     priority: "1",
     title: "新遊戲開發 - 決戰賽特2",
     type: "全新開發",
@@ -118,6 +122,7 @@ function row(
   return {
     id,
     wbs,
+    department: "企劃",
     title,
     type,
     assignee,
@@ -193,6 +198,7 @@ function weekday(date: Date) {
 function normalizeTask(task: Task): Task {
   return {
     ...task,
+    department: task.department || "企劃",
     duration: getDuration(task.startDate, task.finishDate),
     progress: Math.min(100, Math.max(0, Number(task.progress) || 0)),
   };
@@ -202,6 +208,7 @@ function normalizeEpic(epic: Epic): Epic {
   const tasks = epic.tasks.map(normalizeTask);
   return {
     ...epic,
+    department: epic.department || "PM",
     tasks,
     duration: getDuration(epic.startDate, epic.finishDate),
     progress: Math.min(100, Math.max(0, Number(epic.progress) || 0)),
@@ -227,6 +234,7 @@ function blankEpic(nextIndex: number): Epic {
   return {
     id: `epic-${Date.now()}`,
     wbs,
+    department: "PM",
     priority: String(nextIndex),
     title: "新增 EPIC",
     type: "全新開發",
@@ -330,7 +338,23 @@ export default function Home() {
       {
         title: "Priority",
         width: 56,
-        render: (_, row) => row.priority ?? row.department ?? "",
+        className: "department-cell",
+        render: (_, row) => {
+          if (row.rowKind === "task" && row.item) {
+            return (
+              <Select
+                aria-label={`${row.item.wbs} 部門`}
+                className="cell-control"
+                options={departmentSelectOptions}
+                popupMatchSelectWidth={false}
+                value={row.item.department}
+                variant="borderless"
+                onChange={(value) => updateTask(row.epicId, row.item!.id, { department: value })}
+              />
+            );
+          }
+          return row.priority ?? row.department ?? "";
+        },
       },
       {
         title: "Epic/Task description",
@@ -347,28 +371,125 @@ export default function Home() {
               </Button>
             );
           }
-          return row.item?.title ?? "";
+          if (row.rowKind === "task" && row.item) {
+            return (
+              <Input
+                aria-label={`${row.item.wbs} 任務名稱`}
+                className="cell-control"
+                value={row.item.title}
+                variant="borderless"
+                onChange={(event) => updateTask(row.epicId, row.item!.id, { title: event.target.value })}
+              />
+            );
+          }
+          return "";
         },
       },
       {
         title: "Type",
         width: 102,
-        render: (_, row) => row.item?.type ?? "",
+        render: (_, row) => {
+          if (!row.item) {
+            return "";
+          }
+          return (
+            <Select
+              aria-label={`${row.item.wbs} Type`}
+              className="cell-control"
+              options={typeSelectOptions}
+              popupMatchSelectWidth={false}
+              value={row.item.type}
+              variant="borderless"
+              onChange={(value) =>
+                row.rowKind === "epic"
+                  ? updateEpic(row.epicId, { type: value })
+                  : updateTask(row.epicId, row.item!.id, { type: value })
+              }
+            />
+          );
+        },
       },
       {
         title: "Assignee",
         width: 70,
-        render: (_, row) => row.item?.assignee ?? "",
+        render: (_, row) => {
+          if (!row.item) {
+            return "";
+          }
+          return (
+            <Select
+              aria-label={`${row.item.wbs} Assignee`}
+              className="cell-control"
+              options={assigneeSelectOptions}
+              popupMatchSelectWidth={false}
+              value={row.item.assignee}
+              variant="borderless"
+              onChange={(value) =>
+                row.rowKind === "epic"
+                  ? updateEpic(row.epicId, { assignee: value })
+                  : updateTask(row.epicId, row.item!.id, { assignee: value })
+              }
+            />
+          );
+        },
       },
       {
         title: "Start date",
         width: 84,
-        render: (_, row) => row.item?.startDate.slice(2) ?? "",
+        render: (_, row) => {
+          if (!row.item) {
+            return "";
+          }
+          return (
+            <DatePicker
+              allowClear={false}
+              aria-label={`${row.item.wbs} 開始日期`}
+              className="cell-control cell-date"
+              format="YY-MM-DD"
+              inputReadOnly
+              suffixIcon={null}
+              value={dayjs(row.item.startDate)}
+              variant="borderless"
+              onChange={(date) => {
+                const nextDate = date ? date.format("YYYY-MM-DD") : row.item!.startDate;
+                if (row.rowKind === "epic") {
+                  updateEpic(row.epicId, { startDate: nextDate });
+                } else {
+                  updateTask(row.epicId, row.item!.id, { startDate: nextDate });
+                }
+              }}
+            />
+          );
+        },
       },
       {
         title: "Finish date",
         width: 84,
-        render: (_, row) => row.item?.finishDate.slice(2) ?? "",
+        render: (_, row) => {
+          if (!row.item) {
+            return "";
+          }
+          return (
+            <DatePicker
+              allowClear={false}
+              aria-label={`${row.item.wbs} 結束日期`}
+              className="cell-control cell-date"
+              format="YY-MM-DD"
+              inputReadOnly
+              suffixIcon={null}
+              value={dayjs(row.item.finishDate)}
+              variant="borderless"
+              onChange={(date) => {
+                const nextDate = date ? date.format("YYYY-MM-DD") : row.item!.finishDate;
+                if (row.rowKind === "epic") {
+                  updateEpic(row.epicId, { finishDate: nextDate });
+                } else {
+                  updateTask(row.epicId, row.item!.id, { finishDate: nextDate });
+                }
+              }}
+            />
+          );
+        },
       },
       {
         title: "Duration",
