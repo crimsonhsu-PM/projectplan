@@ -142,7 +142,7 @@ select {
   box-shadow: var(--shadow);
   display: grid;
   gap: 18px;
-  grid-template-columns: minmax(280px, 1fr) 220px 190px 160px;
+  grid-template-columns: minmax(280px, 1fr) 220px 190px 160px 150px;
   margin: 0 0 26px;
   min-width: 1450px;
   padding: 22px;
@@ -678,24 +678,6 @@ select {
   min-width: 0;
 }
 
-.task-pin-button {
-  align-items: center;
-  background: transparent;
-  border: 0;
-  color: #bdc4d0;
-  cursor: pointer;
-  display: inline-flex;
-  height: 20px;
-  justify-content: center;
-  padding: 0;
-  width: 18px;
-}
-
-.task-pin-button:hover,
-.task-pin-button-active {
-  color: #0d5bff;
-}
-
 .task-item {
   align-items: center;
   background: #f8f9fd;
@@ -711,50 +693,6 @@ select {
   padding: 8px 10px;
   position: relative;
   transition: box-shadow 0.16s ease, opacity 0.16s ease, transform 0.16s ease;
-}
-
-.task-cell-pinned {
-  border-radius: 0;
-  position: sticky !important;
-  z-index: 30;
-}
-
-.task-columns-header .task-cell-pinned {
-  background: #ffffff;
-  box-shadow: none;
-  min-height: 28px;
-  padding-inline: 0;
-  z-index: 40;
-}
-
-.task-item .task-cell-pinned {
-  background: #f8f9fd !important;
-  box-shadow: none;
-}
-
-.task-item .ant-select.task-cell-pinned .ant-select-selector,
-.task-item .ant-picker.task-cell-pinned {
-  background: #ffffff !important;
-}
-
-.task-item .ant-input.task-cell-pinned {
-  background: transparent !important;
-}
-
-.task-item .ant-select.task-cell-pinned {
-  background: transparent !important;
-}
-
-.task-item .task-title-input.task-cell-pinned {
-  padding-inline: 0;
-}
-
-.task-item .task-wbs.task-cell-pinned,
-.task-item .task-workdays.task-cell-pinned {
-  align-items: center;
-  display: flex;
-  min-height: 36px;
-  padding-inline: 8px;
 }
 
 .task-item-dragging {
@@ -843,6 +781,18 @@ select {
 
 .task-title-input {
   font-weight: 700;
+}
+
+.task-title-cell {
+  align-items: center;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: minmax(0, 1fr) 28px;
+  min-width: 0;
+}
+
+.task-title-cell .ant-btn {
+  border-radius: 6px;
 }
 
 .task-field .ant-select-selector {
@@ -1251,11 +1201,6 @@ select {
   .task-columns-header,
   .holiday-row {
     grid-template-columns: 1fr;
-  }
-
-  .task-cell-pinned {
-    left: auto !important;
-    position: static !important;
   }
 
   .sheet {

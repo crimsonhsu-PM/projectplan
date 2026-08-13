@@ -26,12 +26,12 @@ import {
   CalendarOutlined,
   BellOutlined,
   DeleteOutlined,
+  DownloadOutlined,
   DownOutlined,
   EditOutlined,
   HolderOutlined,
   PlusOutlined,
   ProjectOutlined,
-  PushpinOutlined,
   RightOutlined,
   SettingOutlined,
   TableOutlined,
@@ -97,7 +97,6 @@ type PlannerTableRow = {
 };
 
 const STORAGE_KEY = "rsg-project-plan-v2";
-const PINNED_TASK_COLUMNS_KEY = "rsg-project-plan-pinned-task-columns-v1";
 const VISIBLE_TASK_COLUMNS_KEY = "rsg-project-plan-visible-task-columns-v1";
 const EPIC_MAIN_WIDTH_KEY = "rsg-project-plan-epic-main-width-v1";
 const MIN_EPIC_MAIN_WIDTH = 760;
@@ -242,6 +241,70 @@ function getWorkdayDuration(startDate: string, finishDate: string, holidayDates:
     }
   }
   return duration;
+}
+
+function escapeSpreadsheetCell(value: unknown) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function spreadsheetRow(cells: unknown[]) {
+  return `<tr>${cells.map((cell) => `<td>${escapeSpreadsheetCell(cell)}</td>`).join("")}</tr>`;
+}
+
+function exportProjectExcel(project: ProjectMeta, epics: Epic[], holidayDates: Set<string>) {
+  const rows = [
+    spreadsheetRow(["專案名稱", project.projectName]),
+    spreadsheetRow(["Project type", project.projectType]),
+    spreadsheetRow(["Start date", project.startDate]),
+    spreadsheetRow([]),
+    spreadsheetRow(["類型", "WBS", "Priority", "Epic/Task", "Type/狀態", "部門", "Agent", "Start", "Finish", "工作天數", "完成度", "RM/JIRA"]),
+    ...epics.flatMap((epic) => [
+      spreadsheetRow([
+        "EPIC",
+        epic.wbs,
+        epic.priority,
+        epic.title,
+        epic.type,
+        epic.department,
+        epic.assignee,
+        epic.startDate,
+        epic.finishDate,
+        getWorkdayDuration(epic.startDate, epic.finishDate, holidayDates),
+        `${getEpicProgress(epic.tasks)}%`,
+        epic.rm,
+      ]),
+      ...epic.tasks.map((task) =>
+        spreadsheetRow([
+          "TASK",
+          task.wbs,
+          "",
+          task.title,
+          task.type,
+          task.department,
+          task.assignee,
+          task.startDate,
+          task.finishDate,
+          getWorkdayDuration(task.startDate, task.finishDate, holidayDates),
+          "",
+          task.rm,
+        ]),
+      ),
+    ]),
+  ];
+  const html = `<!doctype html><html><head><meta charset="UTF-8"></head><body><table>${rows.join("")}</table></body></html>`;
+  const blob = new Blob([html], { type: "application/vnd.ms-excel;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${project.projectName || "project-plan"}.xls`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 function addDays(date: Date, days: number) {
@@ -544,7 +607,6 @@ export default function Home() {
   const [draggingEpicId, setDraggingEpicId] = useState<string | null>(null);
   const [draggingTask, setDraggingTask] = useState<{ epicId: string; taskId: string } | null>(null);
   const [taskDropTarget, setTaskDropTarget] = useState<{ epicId: string; taskId: string; position: "before" | "after" } | null>(null);
-  const [pinnedTaskColumns, setPinnedTaskColumns] = useState<Set<TaskColumnKey>>(() => new Set(["task"]));
   const [visibleTaskColumns, setVisibleTaskColumns] = useState<Set<TaskColumnKey>>(() => new Set(taskColumnDefinitions.map((column) => column.key)));
   const [epicMainWidth, setEpicMainWidth] = useState(760);
   const [ganttHoverLine, setGanttHoverLine] = useState<{ epicId: string; x: number } | null>(null);
@@ -562,18 +624,6 @@ export default function Home() {
       } catch {
         setEpics(sampleEpics);
         setSettings(defaultSettings);
-      }
-    }
-    const savedPinnedColumns = window.localStorage.getItem(PINNED_TASK_COLUMNS_KEY);
-    if (savedPinnedColumns) {
-      try {
-        const parsedPinnedColumns = JSON.parse(savedPinnedColumns) as string[];
-        const validPinnedColumns = parsedPinnedColumns.filter((key): key is TaskColumnKey =>
-          taskColumnDefinitions.some((column) => column.key === key),
-        );
-        setPinnedTaskColumns(new Set(validPinnedColumns));
-      } catch {
-        setPinnedTaskColumns(new Set(["task"]));
       }
     }
     const savedVisibleColumns = window.localStorage.getItem(VISIBLE_TASK_COLUMNS_KEY);
@@ -600,11 +650,10 @@ export default function Home() {
   useEffect(() => {
     if (hasLoaded) {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ project, epics, settings }));
-      window.localStorage.setItem(PINNED_TASK_COLUMNS_KEY, JSON.stringify(Array.from(pinnedTaskColumns)));
       window.localStorage.setItem(VISIBLE_TASK_COLUMNS_KEY, JSON.stringify(Array.from(visibleTaskColumns)));
       window.localStorage.setItem(EPIC_MAIN_WIDTH_KEY, String(epicMainWidth));
     }
-  }, [epicMainWidth, epics, hasLoaded, pinnedTaskColumns, project, settings, visibleTaskColumns]);
+  }, [epicMainWidth, epics, hasLoaded, project, settings, visibleTaskColumns]);
 
   const editingEpic = epics.find((epic) => epic.id === editingEpicId) ?? null;
   const typeLabels = useMemo(() => settingLabels(settings.types), [settings.types]);
@@ -1068,18 +1117,6 @@ export default function Home() {
     );
   }
 
-  function togglePinnedTaskColumn(key: TaskColumnKey) {
-    setPinnedTaskColumns((current) => {
-      const next = new Set(current);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
-      return next;
-    });
-  }
-
   function toggleVisibleTaskColumn(key: TaskColumnKey) {
     setVisibleTaskColumns((current) => {
       const next = new Set(current);
@@ -1095,24 +1132,11 @@ export default function Home() {
     });
   }
 
-  function getPinnedTaskColumnStyle(key: TaskColumnKey): React.CSSProperties {
-    if (!pinnedTaskColumns.has(key) || !visibleTaskColumns.has(key)) {
-      return {};
-    }
-    const left = visibleTaskColumnDefinitions.reduce((offset, column) => {
-      if (column.key === key) {
-        return offset;
-      }
-      return pinnedTaskColumns.has(column.key) ? offset + column.width + 8 : offset;
-    }, 10);
-    return { left };
-  }
-
   function getTaskGridStyle(): React.CSSProperties {
     const columnWidths = visibleTaskColumnDefinitions.map((column) => `${column.width}px`).join(" ");
-    const minWidth = visibleTaskColumnDefinitions.reduce((total, column) => total + column.width, 28 + 32 + 8 * (visibleTaskColumnDefinitions.length + 1));
+    const minWidth = visibleTaskColumnDefinitions.reduce((total, column) => total + column.width, 28 + 8 * visibleTaskColumnDefinitions.length);
     return {
-      gridTemplateColumns: `28px ${columnWidths} 32px`,
+      gridTemplateColumns: `28px ${columnWidths}`,
       minWidth,
     };
   }
@@ -1265,6 +1289,9 @@ export default function Home() {
                   </Field>
                   <Button type="primary" icon={<PlusOutlined />} onClick={addEpic}>
                     新增 EPIC
+                  </Button>
+                  <Button icon={<DownloadOutlined />} onClick={() => exportProjectExcel(project, epics, holidayDates)}>
+                    匯出 Excel
                   </Button>
                 </section>
 
@@ -1437,27 +1464,11 @@ export default function Home() {
                               </div>
                               <div className="task-columns-header" style={getTaskGridStyle()}>
                                 <span />
-                                {visibleTaskColumnDefinitions.map((column) => {
-                                  const isPinned = pinnedTaskColumns.has(column.key);
-                                  return (
-                                    <span
-                                      className={`task-header-cell ${isPinned ? "task-cell-pinned" : ""}`}
-                                      key={column.key}
-                                      style={getPinnedTaskColumnStyle(column.key)}
-                                    >
-                                      <button
-                                        aria-label={`${isPinned ? "取消釘選" : "釘選"} ${column.label} 欄位`}
-                                        className={`task-pin-button ${isPinned ? "task-pin-button-active" : ""}`}
-                                        onClick={() => togglePinnedTaskColumn(column.key)}
-                                        type="button"
-                                      >
-                                        <PushpinOutlined />
-                                      </button>
-                                      {column.label}
-                                    </span>
-                                  );
-                                })}
-                                <span />
+                                {visibleTaskColumnDefinitions.map((column) => (
+                                  <span className="task-header-cell" key={column.key}>
+                                    {column.label}
+                                  </span>
+                                ))}
                               </div>
                               {epic.tasks.map((task) => {
                                 const isDraggingTask = draggingTask?.taskId === task.id;
@@ -1503,38 +1514,35 @@ export default function Home() {
                                       <HolderOutlined />
                                     </button>
                                     {visibleTaskColumns.has("wbs") ? (
-                                      <span
-                                        className={`task-wbs ${pinnedTaskColumns.has("wbs") ? "task-cell-pinned" : ""}`}
-                                        style={getPinnedTaskColumnStyle("wbs")}
-                                      >
+                                      <span className="task-wbs">
                                         {task.wbs}
                                       </span>
                                     ) : null}
                                     {visibleTaskColumns.has("task") ? (
-                                      <Input
-                                        className={`task-title-input ${pinnedTaskColumns.has("task") ? "task-cell-pinned" : ""}`}
-                                        style={getPinnedTaskColumnStyle("task")}
-                                        value={task.title}
-                                        variant="borderless"
-                                        onChange={(event) => updateTask(epic.id, task.id, { title: event.target.value })}
-                                      />
+                                      <div className="task-title-cell">
+                                        <Input
+                                          className="task-title-input"
+                                          value={task.title}
+                                          variant="borderless"
+                                          onChange={(event) => updateTask(epic.id, task.id, { title: event.target.value })}
+                                        />
+                                        <Button danger type="text" icon={<DeleteOutlined />} onClick={() => deleteTask(epic.id, task.id)} aria-label={`刪除 ${task.title}`} />
+                                      </div>
                                     ) : null}
                                     {visibleTaskColumns.has("department") ? (
                                       <Select
-                                        className={`task-field ${pinnedTaskColumns.has("department") ? "task-cell-pinned" : ""}`}
+                                        className="task-field"
                                         options={departmentSelectOptions}
-                                        style={getPinnedTaskColumnStyle("department")}
                                         value={task.department}
                                         onChange={(value) => updateTask(epic.id, task.id, { department: value })}
                                       />
                                     ) : null}
                                     {visibleTaskColumns.has("status") ? (
                                       <Select
-                                        className={`task-field colored-select ${pinnedTaskColumns.has("status") ? "task-cell-pinned" : ""}`}
+                                        className="task-field colored-select"
                                         options={statusSelectOptions}
                                         style={
                                           {
-                                            ...getPinnedTaskColumnStyle("status"),
                                             "--setting-color": optionColor(settings.statuses, task.type),
                                           } as React.CSSProperties
                                         }
@@ -1544,9 +1552,8 @@ export default function Home() {
                                     ) : null}
                                     {visibleTaskColumns.has("agent") ? (
                                       <Select
-                                        className={`task-field ${pinnedTaskColumns.has("agent") ? "task-cell-pinned" : ""}`}
+                                        className="task-field"
                                         options={assigneeSelectOptions}
-                                        style={getPinnedTaskColumnStyle("agent")}
                                         value={task.assignee}
                                         onChange={(value) => updateTask(epic.id, task.id, { assignee: value })}
                                       />
@@ -1554,10 +1561,9 @@ export default function Home() {
                                     {visibleTaskColumns.has("start") ? (
                                       <DatePicker
                                         allowClear={false}
-                                        className={`task-date-field ${pinnedTaskColumns.has("start") ? "task-cell-pinned" : ""}`}
+                                        className="task-date-field"
                                         format="YYYY-MM-DD"
                                         inputReadOnly
-                                        style={getPinnedTaskColumnStyle("start")}
                                         value={dayjs(task.startDate)}
                                         onChange={(date) => updateTask(epic.id, task.id, { startDate: date ? date.format("YYYY-MM-DD") : task.startDate })}
                                       />
@@ -1565,23 +1571,21 @@ export default function Home() {
                                     {visibleTaskColumns.has("finish") ? (
                                       <DatePicker
                                         allowClear={false}
-                                        className={`task-date-field ${pinnedTaskColumns.has("finish") ? "task-cell-pinned" : ""}`}
+                                        className="task-date-field"
                                         format="YYYY-MM-DD"
                                         inputReadOnly
-                                        style={getPinnedTaskColumnStyle("finish")}
                                         value={dayjs(task.finishDate)}
                                         onChange={(date) => updateTask(epic.id, task.id, { finishDate: date ? date.format("YYYY-MM-DD") : task.finishDate })}
                                       />
                                     ) : null}
                                     {visibleTaskColumns.has("workdays") ? (
-                                      <span
-                                        className={`task-workdays ${pinnedTaskColumns.has("workdays") ? "task-cell-pinned" : ""}`}
-                                        style={getPinnedTaskColumnStyle("workdays")}
-                                      >
+                                      <span className="task-workdays">
                                         {getWorkdayDuration(task.startDate, task.finishDate, holidayDates)}
                                       </span>
                                     ) : null}
-                                    <Button danger type="text" icon={<DeleteOutlined />} onClick={() => deleteTask(epic.id, task.id)} aria-label={`刪除 ${task.title}`} />
+                                    {visibleTaskColumns.has("task") ? null : (
+                                      <Button danger type="text" icon={<DeleteOutlined />} onClick={() => deleteTask(epic.id, task.id)} aria-label={`刪除 ${task.title}`} />
+                                    )}
                                   </div>
                                 );
                               })}
