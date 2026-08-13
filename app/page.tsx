@@ -1626,20 +1626,22 @@ export default function Home() {
                                   onChange={(value) => updateEpic(epic.id, { assignee: value })}
                                 />
                               </Field>
-                              <Field label="Start">
-                                <DatePicker
+                              <Field label="Start / Finish">
+                                <DatePicker.RangePicker
                                   allowClear={false}
+                                  className="epic-range-field"
+                                  format="YYYY-MM-DD"
                                   inputReadOnly
-                                  value={dayjs(epic.startDate)}
-                                  onChange={(date) => updateEpic(epic.id, { startDate: date ? date.format("YYYY-MM-DD") : epic.startDate })}
-                                />
-                              </Field>
-                              <Field label="Finish">
-                                <DatePicker
-                                  allowClear={false}
-                                  inputReadOnly
-                                  value={dayjs(epic.finishDate)}
-                                  onChange={(date) => updateEpic(epic.id, { finishDate: date ? date.format("YYYY-MM-DD") : epic.finishDate })}
+                                  value={[dayjs(epic.startDate), dayjs(epic.finishDate)]}
+                                  onChange={(dates) => {
+                                    if (!dates?.[0] || !dates?.[1]) {
+                                      return;
+                                    }
+                                    updateEpic(epic.id, {
+                                      startDate: dates[0].format("YYYY-MM-DD"),
+                                      finishDate: dates[1].format("YYYY-MM-DD"),
+                                    });
+                                  }}
                                 />
                               </Field>
                             </div>
@@ -1810,26 +1812,52 @@ export default function Home() {
                                         onChange={(value) => updateTask(epic.id, task.id, { assignee: value })}
                                       />
                                     ) : null}
-                                    {visibleTaskColumns.has("start") ? (
-                                      <DatePicker
+                                    {visibleTaskColumns.has("start") && visibleTaskColumns.has("finish") ? (
+                                      <DatePicker.RangePicker
                                         allowClear={false}
-                                        className="task-date-field"
+                                        className="task-range-field"
                                         format="YYYY-MM-DD"
                                         inputReadOnly
-                                        value={dayjs(task.startDate)}
-                                        onChange={(date) => updateTask(epic.id, task.id, { startDate: date ? date.format("YYYY-MM-DD") : task.startDate })}
+                                        style={{ gridColumn: "span 2" }}
+                                        value={[dayjs(task.startDate), dayjs(task.finishDate)]}
+                                        onChange={(dates) => {
+                                          if (!dates?.[0] || !dates?.[1]) {
+                                            return;
+                                          }
+                                          updateTask(epic.id, task.id, {
+                                            startDate: dates[0].format("YYYY-MM-DD"),
+                                            finishDate: dates[1].format("YYYY-MM-DD"),
+                                          });
+                                        }}
                                       />
-                                    ) : null}
-                                    {visibleTaskColumns.has("finish") ? (
-                                      <DatePicker
-                                        allowClear={false}
-                                        className="task-date-field"
-                                        format="YYYY-MM-DD"
-                                        inputReadOnly
-                                        value={dayjs(task.finishDate)}
-                                        onChange={(date) => updateTask(epic.id, task.id, { finishDate: date ? date.format("YYYY-MM-DD") : task.finishDate })}
-                                      />
-                                    ) : null}
+                                    ) : (
+                                      <>
+                                        {visibleTaskColumns.has("start") ? (
+                                          <DatePicker
+                                            allowClear={false}
+                                            className="task-date-field"
+                                            format="YYYY-MM-DD"
+                                            inputReadOnly
+                                            value={dayjs(task.startDate)}
+                                            onChange={(date) =>
+                                              updateTask(epic.id, task.id, { startDate: date ? date.format("YYYY-MM-DD") : task.startDate })
+                                            }
+                                          />
+                                        ) : null}
+                                        {visibleTaskColumns.has("finish") ? (
+                                          <DatePicker
+                                            allowClear={false}
+                                            className="task-date-field"
+                                            format="YYYY-MM-DD"
+                                            inputReadOnly
+                                            value={dayjs(task.finishDate)}
+                                            onChange={(date) =>
+                                              updateTask(epic.id, task.id, { finishDate: date ? date.format("YYYY-MM-DD") : task.finishDate })
+                                            }
+                                          />
+                                        ) : null}
+                                      </>
+                                    )}
                                     {visibleTaskColumns.has("workdays") ? (
                                       <span className="task-workdays">
                                         {getWorkdayDuration(task.startDate, task.finishDate, holidayDates)}
@@ -1944,22 +1972,22 @@ export default function Home() {
                   onChange={(value) => updateEpic(editingEpic.id, { assignee: value })}
                 />
               </Field>
-              <Field label="Start date">
-                <DatePicker
+              <Field label="Start / Finish">
+                <DatePicker.RangePicker
                   allowClear={false}
+                  className="epic-range-field"
+                  format="YYYY-MM-DD"
                   inputReadOnly
-                  value={dayjs(editingEpic.startDate)}
-                  onChange={(date) => updateEpic(editingEpic.id, { startDate: date ? date.format("YYYY-MM-DD") : editingEpic.startDate })}
-                />
-              </Field>
-              <Field label="Finish date">
-                <DatePicker
-                  allowClear={false}
-                  inputReadOnly
-                  value={dayjs(editingEpic.finishDate)}
-                  onChange={(date) =>
-                    updateEpic(editingEpic.id, { finishDate: date ? date.format("YYYY-MM-DD") : editingEpic.finishDate })
-                  }
+                  value={[dayjs(editingEpic.startDate), dayjs(editingEpic.finishDate)]}
+                  onChange={(dates) => {
+                    if (!dates?.[0] || !dates?.[1]) {
+                      return;
+                    }
+                    updateEpic(editingEpic.id, {
+                      startDate: dates[0].format("YYYY-MM-DD"),
+                      finishDate: dates[1].format("YYYY-MM-DD"),
+                    });
+                  }}
                 />
               </Field>
             </div>
@@ -1992,21 +2020,22 @@ export default function Home() {
                     value={task.assignee}
                     onChange={(value) => updateTask(editingEpic.id, task.id, { assignee: value })}
                   />
-                  <DatePicker
+                  <DatePicker.RangePicker
                     allowClear={false}
+                    className="task-card-range-field"
+                    format="YYYY-MM-DD"
                     inputReadOnly
-                    value={dayjs(task.startDate)}
-                    onChange={(date) => updateTask(editingEpic.id, task.id, { startDate: date ? date.format("YYYY-MM-DD") : task.startDate })}
-                    aria-label={`${task.wbs} 開始日期`}
-                  />
-                  <DatePicker
-                    allowClear={false}
-                    inputReadOnly
-                    value={dayjs(task.finishDate)}
-                    onChange={(date) =>
-                      updateTask(editingEpic.id, task.id, { finishDate: date ? date.format("YYYY-MM-DD") : task.finishDate })
-                    }
-                    aria-label={`${task.wbs} 結束日期`}
+                    value={[dayjs(task.startDate), dayjs(task.finishDate)]}
+                    onChange={(dates) => {
+                      if (!dates?.[0] || !dates?.[1]) {
+                        return;
+                      }
+                      updateTask(editingEpic.id, task.id, {
+                        startDate: dates[0].format("YYYY-MM-DD"),
+                        finishDate: dates[1].format("YYYY-MM-DD"),
+                      });
+                    }}
+                    aria-label={`${task.wbs} 日期區間`}
                   />
                   <span className="task-workdays">{getWorkdayDuration(task.startDate, task.finishDate, holidayDates)} 天</span>
                   <Input
