@@ -1279,12 +1279,11 @@ export default function Home() {
                                 ))}
                               </div>
                               {renderGanttRow(epic, "epic-gantt-row")}
-                              {!isCollapsed ? <div className="gantt-task-list-spacer" /> : null}
-                              {!isCollapsed ? epic.tasks.map((task) => renderGanttRow(task)) : null}
                             </div>
                           </div>
 
                           {!isCollapsed ? (
+                            <>
                             <div className="task-list">
                               <div className="task-list-header">
                                 <span>Tasks</span>
@@ -1426,6 +1425,18 @@ export default function Home() {
                                 );
                               })}
                             </div>
+                            <div
+                              className="task-gantt-panel"
+                              style={
+                                {
+                                  "--gantt-days": days.length,
+                                } as React.CSSProperties
+                              }
+                            >
+                              <div className="task-gantt-offset" />
+                              <div className="gantt-scroll task-gantt-rows">{epic.tasks.map((task) => renderGanttRow(task))}</div>
+                            </div>
+                            </>
                           ) : null}
                         </article>
                       );

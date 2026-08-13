@@ -325,7 +325,7 @@ select {
   gap: 16px;
   grid-template-areas:
     "toggle main gantt"
-    ". tasks gantt";
+    ". tasks task-gantt";
   grid-template-columns: 46px minmax(720px, 0.95fr) minmax(620px, 1fr);
   min-width: 1450px;
   overflow-x: auto;
@@ -353,7 +353,7 @@ select {
 
 .epic-card-main {
   grid-area: main;
-  min-height: 118px;
+  min-height: 104px;
   min-width: 0;
 }
 
@@ -401,7 +401,7 @@ select {
   display: grid;
   gap: 12px;
   grid-template-columns: repeat(4, minmax(130px, 1fr));
-  margin-top: 18px;
+  margin-top: 14px;
 }
 
 .epic-fields label {
@@ -415,10 +415,23 @@ select {
   background: #f7f9fd;
   border-radius: 8px;
   grid-area: gantt;
+  align-self: start;
   min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 12px;
+  padding: 10px 12px;
+  position: relative;
+  z-index: 2;
+}
+
+.task-gantt-panel {
+  background: #f7f9fd;
+  border-radius: 8px;
+  grid-area: task-gantt;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0 12px 12px;
   position: relative;
   z-index: 2;
 }
@@ -486,7 +499,8 @@ select {
     #e7edf7 33px,
     #e7edf7 34px
   );
-  border-bottom: 10px solid #f7f9fd;
+  border-bottom: 0;
+  box-sizing: border-box;
   min-height: 54px;
 }
 
@@ -495,8 +509,18 @@ select {
   min-height: 54px;
 }
 
-.gantt-task-list-spacer {
+.task-gantt-offset {
   height: 96px;
+}
+
+.task-gantt-rows {
+  display: grid;
+  gap: 10px;
+}
+
+.task-gantt-rows .gantt-board-row {
+  height: 54px;
+  min-height: 54px;
 }
 
 .gantt-board-bar {
@@ -579,6 +603,8 @@ select {
   display: grid;
   gap: 8px;
   grid-template-columns: 28px 48px 220px 92px 108px 108px 128px 128px 72px 32px;
+  box-sizing: border-box;
+  height: 54px;
   min-height: 54px;
   min-width: 1020px;
   padding: 8px 10px;
@@ -1085,7 +1111,8 @@ select {
       "toggle"
       "gantt"
       "main"
-      "tasks";
+      "tasks"
+      "task-gantt";
     grid-template-columns: 1fr;
   }
 
@@ -1101,6 +1128,11 @@ select {
   }
 
   .epic-gantt-panel {
+    grid-column: auto;
+    grid-row: auto;
+  }
+
+  .task-gantt-panel {
     grid-column: auto;
     grid-row: auto;
   }
