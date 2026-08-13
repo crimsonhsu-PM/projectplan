@@ -343,9 +343,9 @@ export default function Home() {
       wbs: columnWidth(["WBS", ...rowsWithItems.map((row) => row.item?.wbs)], 64, 92, 24),
       priority: columnWidth(
         ["Priority", ...tableRows.map((row) => (row.rowKind === "task" ? row.item?.department : row.priority ?? row.department))],
-        76,
-        92,
-        22,
+        96,
+        120,
+        34,
       ),
       description: columnWidth(
         ["Epic/Task description", ...tableRows.map((row) => row.item?.title ?? row.project)],

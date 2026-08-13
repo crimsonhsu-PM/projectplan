@@ -180,12 +180,23 @@ select {
 }
 
 .planner-table .cell-control .ant-select-selector {
+  overflow: visible !important;
   padding-inline: 0 !important;
 }
 
+.planner-table .cell-control .ant-select-selection-wrap {
+  overflow: visible !important;
+}
+
 .planner-table .cell-control .ant-select-selection-item {
-  overflow: visible;
-  text-overflow: clip;
+  overflow: visible !important;
+  padding-inline-end: 18px !important;
+  text-overflow: clip !important;
+  white-space: nowrap !important;
+}
+
+.planner-table .department-cell .cell-control {
+  min-width: 64px;
 }
 
 .planner-table .cell-control.ant-picker {
