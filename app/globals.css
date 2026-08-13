@@ -222,9 +222,45 @@ select {
   width: 100%;
 }
 
+.colored-settings-row {
+  align-items: center;
+  gap: 10px;
+}
+
 .settings-row .ant-input,
 .settings-row .ant-picker {
   flex: 1;
+}
+
+.colored-settings-row .ant-input {
+  min-width: 0;
+}
+
+.select-color-option {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.select-color-dot {
+  border-radius: 999px;
+  display: inline-block;
+  flex: 0 0 auto;
+  height: 8px;
+  width: 8px;
+}
+
+.colored-select .ant-select-selector {
+  border-left: 4px solid var(--setting-color, #94a3b8) !important;
+}
+
+.colored-select.ant-select-borderless .ant-select-selector {
+  border-left-color: var(--setting-color, #94a3b8) !important;
+}
+
+.cell-control.colored-select .ant-select-selector {
+  padding-inline-start: 8px !important;
 }
 
 .holiday-row {

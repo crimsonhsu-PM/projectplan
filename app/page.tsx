@@ -5,6 +5,7 @@ import {
   Avatar,
   Button,
   Card,
+  ColorPicker,
   ConfigProvider,
   DatePicker,
   Input,
@@ -68,12 +69,18 @@ type HolidayRange = {
   note: string;
 };
 
+type SettingOption = {
+  id: string;
+  label: string;
+  color: string;
+};
+
 type AppSettings = {
   departments: string[];
   agents: string[];
   holidays: HolidayRange[];
-  types: string[];
-  statuses: string[];
+  types: SettingOption[];
+  statuses: SettingOption[];
 };
 
 type PlannerTableRow = {
@@ -98,8 +105,20 @@ const defaultSettings: AppSettings = {
     { id: "holiday-2026-04-03", startDate: "2026-04-03", endDate: "2026-04-03", note: "兒童節補假" },
     { id: "holiday-2026-06-19", startDate: "2026-06-19", endDate: "2026-06-19", note: "端午節" },
   ],
-  types: ["全新開發", "優化", "移植開發", "Done", "QA進測前", "待確認"],
-  statuses: ["待辦", "進行中", "完成", "擱置"],
+  types: [
+    { id: "type-new", label: "全新開發", color: "#0d5bff" },
+    { id: "type-optimize", label: "優化", color: "#f59e0b" },
+    { id: "type-port", label: "移植開發", color: "#7c3aed" },
+    { id: "type-done", label: "Done", color: "#16a34a" },
+    { id: "type-qa", label: "QA進測前", color: "#06b6d4" },
+    { id: "type-pending", label: "待確認", color: "#94a3b8" },
+  ],
+  statuses: [
+    { id: "status-todo", label: "待辦", color: "#94a3b8" },
+    { id: "status-progress", label: "進行中", color: "#0d5bff" },
+    { id: "status-done", label: "完成", color: "#16a34a" },
+    { id: "status-hold", label: "擱置", color: "#f97316" },
+  ],
 };
 
 const defaultProject: ProjectMeta = {
@@ -259,8 +278,30 @@ function columnWidth(values: Array<string | number | undefined>, min: number, ma
   return Math.ceil(Math.min(max, Math.max(min, widest + extra)));
 }
 
+function settingLabels(values: SettingOption[]) {
+  return values.map((value) => value.label);
+}
+
 function toSelectOptions(values: string[]) {
   return values.filter(Boolean).map((value) => ({ label: value, value }));
+}
+
+function toColoredSelectOptions(values: SettingOption[]) {
+  return values
+    .filter((value) => value.label)
+    .map((value) => ({
+      label: (
+        <span className="select-color-option">
+          <span className="select-color-dot" style={{ backgroundColor: value.color }} />
+          {value.label}
+        </span>
+      ),
+      value: value.label,
+    }));
+}
+
+function optionColor(values: SettingOption[], label: string) {
+  return values.find((value) => value.label === label)?.color ?? "#94a3b8";
 }
 
 function normalizeSettingList(values: unknown, fallback: string[]) {
@@ -269,6 +310,44 @@ function normalizeSettingList(values: unknown, fallback: string[]) {
   }
   const normalized = values.map((value) => String(value).trim()).filter(Boolean);
   return normalized.length ? Array.from(new Set(normalized)) : fallback;
+}
+
+function normalizeColoredSettingList(values: unknown, fallback: SettingOption[]) {
+  if (!Array.isArray(values)) {
+    return fallback;
+  }
+  const seen = new Set<string>();
+  const normalized = values
+    .map((value, index) => {
+      if (typeof value === "string") {
+        const label = value.trim();
+        if (!label || seen.has(label)) {
+          return null;
+        }
+        seen.add(label);
+        return {
+          id: `option-${label}-${index}`,
+          label,
+          color: fallback.find((item) => item.label === label)?.color ?? "#0d5bff",
+        };
+      }
+      if (value && typeof value === "object") {
+        const item = value as Partial<SettingOption> & { value?: string; name?: string };
+        const label = String(item.label ?? item.value ?? item.name ?? "").trim();
+        if (!label || seen.has(label)) {
+          return null;
+        }
+        seen.add(label);
+        return {
+          id: String(item.id ?? `option-${label}-${index}`),
+          label,
+          color: String(item.color ?? fallback.find((fallbackItem) => fallbackItem.label === label)?.color ?? "#0d5bff"),
+        };
+      }
+      return null;
+    })
+    .filter((value): value is SettingOption => Boolean(value));
+  return normalized.length ? normalized : fallback;
 }
 
 function normalizeHolidayRanges(values: unknown, fallback: HolidayRange[]) {
@@ -314,8 +393,8 @@ function normalizeSettings(settings?: Partial<AppSettings>): AppSettings {
     departments: normalizeSettingList(settings?.departments, defaultSettings.departments),
     agents: normalizeSettingList(settings?.agents, defaultSettings.agents),
     holidays: normalizeHolidayRanges(settings?.holidays, defaultSettings.holidays),
-    types: normalizeSettingList(settings?.types, defaultSettings.types),
-    statuses: normalizeSettingList(settings?.statuses, defaultSettings.statuses),
+    types: normalizeColoredSettingList(settings?.types, defaultSettings.types),
+    statuses: normalizeColoredSettingList(settings?.statuses, defaultSettings.statuses),
   };
 }
 
@@ -436,8 +515,10 @@ export default function Home() {
   }, [epics, hasLoaded, project, settings]);
 
   const editingEpic = epics.find((epic) => epic.id === editingEpicId) ?? null;
-  const typeSelectOptions = useMemo(() => toSelectOptions(settings.types), [settings.types]);
-  const statusSelectOptions = useMemo(() => toSelectOptions(settings.statuses), [settings.statuses]);
+  const typeLabels = useMemo(() => settingLabels(settings.types), [settings.types]);
+  const statusLabels = useMemo(() => settingLabels(settings.statuses), [settings.statuses]);
+  const typeSelectOptions = useMemo(() => toColoredSelectOptions(settings.types), [settings.types]);
+  const statusSelectOptions = useMemo(() => toColoredSelectOptions(settings.statuses), [settings.statuses]);
   const departmentSelectOptions = useMemo(() => toSelectOptions(settings.departments), [settings.departments]);
   const assigneeSelectOptions = useMemo(() => toSelectOptions(settings.agents), [settings.agents]);
   const tableRows = useMemo<PlannerTableRow[]>(
@@ -499,7 +580,7 @@ export default function Home() {
         520,
         46,
       ),
-      type: columnWidth(["Type", ...settings.types, ...textRows.map((item) => item?.type)], 104, 180, 34),
+      type: columnWidth(["Type", ...typeLabels, ...textRows.map((item) => item?.type)], 104, 180, 34),
       assignee: columnWidth(["Assignee", ...settings.agents, ...textRows.map((item) => item?.assignee)], 128, 220, 48),
       startDate: columnWidth(["Start date", ...textRows.map((item) => item?.startDate.slice(2))], 104, 118, 24),
       finishDate: columnWidth(["Finish date", ...textRows.map((item) => item?.finishDate.slice(2))], 104, 118, 24),
@@ -510,7 +591,7 @@ export default function Home() {
       ...widths,
       total: Object.values(widths).reduce((total, width) => total + width, 0),
     };
-  }, [settings.agents, settings.types, tableRows]);
+  }, [settings.agents, tableRows, typeLabels]);
   const tableColumns = useMemo<TableProps<PlannerTableRow>["columns"]>(
     () => [
       {
@@ -598,9 +679,10 @@ export default function Home() {
           return (
             <Select
               aria-label={`${row.item.wbs} Type`}
-              className="cell-control"
+              className="cell-control colored-select"
               options={typeSelectOptions}
               popupMatchSelectWidth={false}
+              style={{ "--setting-color": optionColor(settings.types, row.item.type) } as React.CSSProperties}
               value={row.item.type}
               variant="borderless"
               onChange={(value) =>
@@ -793,7 +875,7 @@ export default function Home() {
       department: settings.departments[0] ?? "PM",
       startDate,
       finishDate,
-      type: settings.types[0] ?? "全新開發",
+      type: typeLabels[0] ?? "全新開發",
       tasks: baseEpic.tasks.map((task) => ({ ...task, assignee: settings.agents[0] ?? "Simon", startDate, finishDate: startDate })),
     };
     setEpics((current) => [...current, epic]);
@@ -820,7 +902,11 @@ export default function Home() {
     });
   }
 
-  function updateSettingsList(key: "departments" | "agents" | "types" | "statuses", values: string[]) {
+  function updateSettingsList(key: "departments" | "agents", values: string[]) {
+    setSettings((current) => ({ ...current, [key]: values }));
+  }
+
+  function updateColoredSettingsList(key: "types" | "statuses", values: SettingOption[]) {
     setSettings((current) => ({ ...current, [key]: values }));
   }
 
@@ -851,7 +937,7 @@ export default function Home() {
                   ...blankTask(epic.tasks.length + 1, epic.wbs),
                   assignee: settings.agents[0] ?? "Simon",
                   department: settings.departments[0] ?? "企劃",
-                  type: settings.statuses[0] ?? "待辦",
+                  type: statusLabels[0] ?? "待辦",
                 },
               ],
             })
@@ -1031,7 +1117,9 @@ export default function Home() {
                             <div className="epic-fields">
                               <Field label="Type">
                                 <Select
+                                  className="colored-select"
                                   options={typeSelectOptions}
+                                  style={{ "--setting-color": optionColor(settings.types, epic.type) } as React.CSSProperties}
                                   value={epic.type}
                                   onChange={(value) => updateEpic(epic.id, { type: value })}
                                 />
@@ -1151,8 +1239,9 @@ export default function Home() {
                                       onChange={(value) => updateTask(epic.id, task.id, { department: value })}
                                     />
                                     <Select
-                                      className="task-field"
+                                      className="task-field colored-select"
                                       options={statusSelectOptions}
+                                      style={{ "--setting-color": optionColor(settings.statuses, task.type) } as React.CSSProperties}
                                       value={task.type}
                                       onChange={(value) => updateTask(epic.id, task.id, { type: value })}
                                     />
@@ -1198,15 +1287,15 @@ export default function Home() {
                     onAdd={addHoliday}
                     onChange={updateHolidays}
                   />
-                  <EditableOptionCard
+                  <ColoredOptionCard
                     title="Type設定"
                     values={settings.types}
-                    onChange={(values) => updateSettingsList("types", values)}
+                    onChange={(values) => updateColoredSettingsList("types", values)}
                   />
-                  <EditableOptionCard
+                  <ColoredOptionCard
                     title="狀態設定"
                     values={settings.statuses}
-                    onChange={(values) => updateSettingsList("statuses", values)}
+                    onChange={(values) => updateColoredSettingsList("statuses", values)}
                   />
                 </div>
               </section>
@@ -1244,7 +1333,9 @@ export default function Home() {
               </Field>
               <Field label="Type">
                 <Select
+                  className="colored-select"
                   options={typeSelectOptions}
+                  style={{ "--setting-color": optionColor(settings.types, editingEpic.type) } as React.CSSProperties}
                   value={editingEpic.type}
                   onChange={(value) => updateEpic(editingEpic.id, { type: value })}
                 />
@@ -1302,7 +1393,9 @@ export default function Home() {
                     aria-label={`${task.wbs} 任務名稱`}
                   />
                   <Select
+                    className="colored-select"
                     options={statusSelectOptions}
+                    style={{ "--setting-color": optionColor(settings.statuses, task.type) } as React.CSSProperties}
                     value={task.type}
                     onChange={(value) => updateTask(editingEpic.id, task.id, { type: value })}
                   />
@@ -1388,6 +1481,64 @@ function EditableOptionCard({
             <Input value={value} onChange={(event) => updateValue(index, event.target.value)} />
             <Button danger icon={<DeleteOutlined />} onClick={() => deleteValue(index)} aria-label={`刪除 ${value}`} />
           </Space.Compact>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function ColoredOptionCard({
+  title,
+  values,
+  onChange,
+}: {
+  title: string;
+  values: SettingOption[];
+  onChange: (values: SettingOption[]) => void;
+}) {
+  function updateValue(index: number, patch: Partial<SettingOption>) {
+    onChange(values.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item)));
+  }
+
+  function deleteValue(index: number) {
+    onChange(values.filter((_, itemIndex) => itemIndex !== index));
+  }
+
+  return (
+    <Card
+      className="settings-card"
+      title={title}
+      extra={
+        <Button
+          type="primary"
+          icon={<PlusOutlined />}
+          onClick={() =>
+            onChange([
+              ...values,
+              { id: `option-${Date.now()}`, label: "新增項目", color: "#0d5bff" },
+            ])
+          }
+        >
+          新增
+        </Button>
+      }
+    >
+      <div className="settings-list">
+        {values.map((value, index) => (
+          <div className="settings-row colored-settings-row" key={value.id}>
+            <ColorPicker
+              value={value.color}
+              onChange={(_, hex) => updateValue(index, { color: hex })}
+              presets={[
+                {
+                  label: "常用",
+                  colors: ["#0d5bff", "#16a34a", "#f59e0b", "#f97316", "#7c3aed", "#06b6d4", "#ef4444", "#94a3b8"],
+                },
+              ]}
+            />
+            <Input value={value.label} onChange={(event) => updateValue(index, { label: event.target.value })} />
+            <Button danger icon={<DeleteOutlined />} onClick={() => deleteValue(index)} aria-label={`刪除 ${value.label}`} />
+          </div>
         ))}
       </div>
     </Card>
