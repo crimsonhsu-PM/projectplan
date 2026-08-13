@@ -1279,6 +1279,7 @@ export default function Home() {
                                 ))}
                               </div>
                               {renderGanttRow(epic, "epic-gantt-row")}
+                              {!isCollapsed ? <div className="gantt-task-list-spacer" /> : null}
                               {!isCollapsed ? epic.tasks.map((task) => renderGanttRow(task)) : null}
                             </div>
                           </div>
