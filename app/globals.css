@@ -587,32 +587,39 @@ select {
 }
 
 .task-cell-pinned {
-  border-radius: 8px;
+  border-radius: 0;
   position: sticky !important;
   z-index: 30;
 }
 
 .task-columns-header .task-cell-pinned {
-  background: rgba(255, 255, 255, 0.98);
-  box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.98), 14px 0 22px rgba(30, 40, 70, 0.12);
+  background: #ffffff;
+  box-shadow: none;
   min-height: 28px;
-  padding-inline: 6px;
+  padding-inline: 0;
   z-index: 40;
 }
 
 .task-item .task-cell-pinned {
-  background: #ffffff !important;
-  box-shadow: 0 0 0 7px rgba(255, 255, 255, 0.98), 14px 0 24px rgba(30, 40, 70, 0.14);
+  background: #f8f9fd !important;
+  box-shadow: none;
 }
 
 .task-item .ant-select.task-cell-pinned .ant-select-selector,
-.task-item .ant-picker.task-cell-pinned,
-.task-item .ant-input.task-cell-pinned {
+.task-item .ant-picker.task-cell-pinned {
   background: #ffffff !important;
+}
+
+.task-item .ant-input.task-cell-pinned {
+  background: transparent !important;
 }
 
 .task-item .ant-select.task-cell-pinned {
   background: transparent !important;
+}
+
+.task-item .task-title-input.task-cell-pinned {
+  padding-inline: 0;
 }
 
 .task-item .task-wbs.task-cell-pinned,
