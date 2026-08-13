@@ -725,11 +725,6 @@ export default function Home() {
               <ProjectOutlined />
               <span>RSG project</span>
             </div>
-            <div className="sidebar-action">
-              <Button type="primary" icon={<PlusOutlined />} onClick={addEpic}>
-                新增 EPIC
-              </Button>
-            </div>
             <Menu
               mode="inline"
               selectedKeys={[activePage]}
@@ -776,73 +771,149 @@ export default function Home() {
                   <Field label="WK">
                     <Input value={project.wk} onChange={(event) => setProject({ ...project, wk: event.target.value })} />
                   </Field>
-                  <Button type="primary" icon={<PlusOutlined />} onClick={addEpic}>
-                    新增 EPIC
-                  </Button>
                 </section>
 
-                <section
-                  className="sheet"
-                  style={{ "--table-width": `${tableWidths.total}px` } as React.CSSProperties}
-                  aria-label="Epic 與 Task 甘特圖"
-                >
-                  <div className="left-pane">
-                    <Table<PlannerTableRow>
-                      bordered
-                      className="planner-table"
-                      columns={tableColumns}
-                      dataSource={tableRows}
-                      pagination={false}
-                      rowClassName={(row) => `${row.rowKind}-row`}
-                      size="small"
-                      tableLayout="fixed"
-                    />
+                <section className="project-board" aria-label="Epic 與 Task 專案列表">
+                  <div className="board-toolbar">
+                    <div>
+                      <Typography.Title level={4}>Epic 工作列表</Typography.Title>
+                      <Typography.Text type="secondary">以卡片管理 Epic、Task 與排程區間。</Typography.Text>
+                    </div>
+                    <Button type="primary" icon={<PlusOutlined />} onClick={addEpic}>
+                      新增 EPIC
+                    </Button>
                   </div>
 
-                  <div
-                    className="gantt-pane"
-                    style={{ "--day-count": days.length } as React.CSSProperties}
-                    aria-label="日視圖甘特圖"
-                  >
-                    <div className="week-row">
-                      {weeks.map((day) => (
-                        <span
-                          className="week-label"
-                          key={day.toISOString()}
-                          style={{ gridColumn: `${getOffset(formatIso(day)) + 1} / span 7` }}
-                        >
-                          {weekLabel(day)}
-                        </span>
-                      ))}
-                    </div>
-                    <div className="day-row">
-                      {days.map((day) => (
-                        <span key={day.toISOString()}>{dayLabel(day)}</span>
-                      ))}
-                    </div>
-                    <div className="weekday-row">
-                      {days.map((day) => (
-                        <span key={day.toISOString()}>{weekday(day)}</span>
-                      ))}
-                    </div>
-                    {tableRows.map((row) => {
-                      if (!row.item) {
-                        return <div className="gantt-line section-line" key={row.key} />;
-                      }
-                      const isEpic = row.rowKind === "epic";
-                      const offset = getOffset(row.item.startDate);
-                      const span = Math.max(1, getDuration(row.item.startDate, row.item.finishDate));
+                  <div className="epic-list">
+                    {epics.map((epic) => {
+                      const isCollapsed = collapsedEpicIds.has(epic.id);
+                      const epicLeft = (getOffset(epic.startDate) / Math.max(1, days.length)) * 100;
+                      const epicWidth = (getDuration(epic.startDate, epic.finishDate) / Math.max(1, days.length)) * 100;
                       return (
-                        <div className={isEpic ? "gantt-line epic-line" : "gantt-line"} key={row.key}>
-                          <span
-                            className={isEpic ? "bar epic-bar" : "bar"}
-                            style={{
-                              gridColumn: `${offset + 1} / span ${span}`,
-                              "--progress": `${row.item.progress}%`,
-                            } as React.CSSProperties}
-                            title={`${row.item.title} ${row.item.startDate} - ${row.item.finishDate}`}
-                          />
-                        </div>
+                        <article className="epic-card" key={epic.id}>
+                          <div className="epic-card-main">
+                            <div className="epic-title-row">
+                              <Button
+                                aria-label={isCollapsed ? "展開 Tasks" : "收合 Tasks"}
+                                icon={isCollapsed ? <RightOutlined /> : <DownOutlined />}
+                                onClick={() => toggleEpic(epic.id)}
+                                size="small"
+                                type="text"
+                              />
+                              <Tag color="blue">EPIC {epic.wbs}</Tag>
+                              <Button type="link" className="epic-title-button" icon={<EditOutlined />} onClick={() => setEditingEpicId(epic.id)}>
+                                {epic.title}
+                              </Button>
+                            </div>
+
+                            <div className="epic-fields">
+                              <Field label="Type">
+                                <Select
+                                  options={typeSelectOptions}
+                                  value={epic.type}
+                                  onChange={(value) => updateEpic(epic.id, { type: value })}
+                                />
+                              </Field>
+                              <Field label="Agent">
+                                <Select
+                                  options={assigneeSelectOptions}
+                                  value={epic.assignee}
+                                  onChange={(value) => updateEpic(epic.id, { assignee: value })}
+                                />
+                              </Field>
+                              <Field label="Start">
+                                <DatePicker
+                                  allowClear={false}
+                                  inputReadOnly
+                                  value={dayjs(epic.startDate)}
+                                  onChange={(date) => updateEpic(epic.id, { startDate: date ? date.format("YYYY-MM-DD") : epic.startDate })}
+                                />
+                              </Field>
+                              <Field label="Finish">
+                                <DatePicker
+                                  allowClear={false}
+                                  inputReadOnly
+                                  value={dayjs(epic.finishDate)}
+                                  onChange={(date) => updateEpic(epic.id, { finishDate: date ? date.format("YYYY-MM-DD") : epic.finishDate })}
+                                />
+                              </Field>
+                            </div>
+                          </div>
+
+                          <div className="epic-timeline">
+                            <div className="timeline-meta">
+                              <span>{epic.duration} days</span>
+                              <span>{epic.progress}%</span>
+                            </div>
+                            <div className="timeline-track">
+                              <span
+                                className="timeline-bar"
+                                style={{
+                                  left: `${Math.min(96, epicLeft)}%`,
+                                  width: `${Math.max(4, Math.min(100 - epicLeft, epicWidth))}%`,
+                                  "--progress": `${epic.progress}%`,
+                                } as React.CSSProperties}
+                              />
+                            </div>
+                            <div className="timeline-dates">
+                              <span>{epic.startDate}</span>
+                              <span>{epic.finishDate}</span>
+                            </div>
+                          </div>
+
+                          {!isCollapsed ? (
+                            <div className="task-list">
+                              <div className="task-list-header">
+                                <span>Tasks</span>
+                                <Button size="small" icon={<PlusOutlined />} onClick={() => addTask(epic.id)}>
+                                  新增 Task
+                                </Button>
+                              </div>
+                              {epic.tasks.map((task) => {
+                                const taskLeft = (getOffset(task.startDate) / Math.max(1, days.length)) * 100;
+                                const taskWidth = (getDuration(task.startDate, task.finishDate) / Math.max(1, days.length)) * 100;
+                                return (
+                                  <div className="task-item" key={task.id}>
+                                    <div className="task-identity">
+                                      <span className="task-wbs">{task.wbs}</span>
+                                      <Input
+                                        value={task.title}
+                                        variant="borderless"
+                                        onChange={(event) => updateTask(epic.id, task.id, { title: event.target.value })}
+                                      />
+                                    </div>
+                                    <Select
+                                      className="task-field"
+                                      options={departmentSelectOptions}
+                                      value={task.department}
+                                      onChange={(value) => updateTask(epic.id, task.id, { department: value })}
+                                    />
+                                    <Select
+                                      className="task-field"
+                                      options={typeSelectOptions}
+                                      value={task.type}
+                                      onChange={(value) => updateTask(epic.id, task.id, { type: value })}
+                                    />
+                                    <Select
+                                      className="task-field"
+                                      options={assigneeSelectOptions}
+                                      value={task.assignee}
+                                      onChange={(value) => updateTask(epic.id, task.id, { assignee: value })}
+                                    />
+                                    <div className="task-mini-timeline">
+                                      <span
+                                        style={{
+                                          left: `${Math.min(96, taskLeft)}%`,
+                                          width: `${Math.max(4, Math.min(100 - taskLeft, taskWidth))}%`,
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : null}
+                        </article>
                       );
                     })}
                   </div>
