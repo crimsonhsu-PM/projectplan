@@ -3,10 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Button,
+  Card,
   ConfigProvider,
   DatePicker,
   Input,
   InputNumber,
+  Layout,
+  Menu,
   Modal,
   Select,
   Space,
@@ -23,6 +26,8 @@ import {
   PlusOutlined,
   ProjectOutlined,
   RightOutlined,
+  SettingOutlined,
+  TableOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 
@@ -52,6 +57,14 @@ type ProjectMeta = {
   wk: string;
 };
 
+type AppSettings = {
+  departments: string[];
+  agents: string[];
+  holidays: string[];
+  types: string[];
+  statuses: string[];
+};
+
 type PlannerTableRow = {
   key: string;
   rowKind: "epic" | "section" | "task";
@@ -65,12 +78,13 @@ type PlannerTableRow = {
 const STORAGE_KEY = "rsg-project-plan-v2";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-const typeOptions = ["全新開發", "優化", "移植開發", "Done", "QA進測前", "待確認"];
-const departmentOptions = ["企劃", "前端", "後端", "QA", "PM"];
-const assignees = ["Simon", "PM", "Clara", "Anna", "Della", "shock", "GMS", "Will"];
-const typeSelectOptions = typeOptions.map((type) => ({ label: type, value: type }));
-const departmentSelectOptions = departmentOptions.map((department) => ({ label: department, value: department }));
-const assigneeSelectOptions = assignees.map((name) => ({ label: name, value: name }));
+const defaultSettings: AppSettings = {
+  departments: ["企劃", "前端", "後端", "QA", "PM"],
+  agents: ["Simon", "PM", "Clara", "Anna", "Della", "shock", "GMS", "Will"],
+  holidays: ["2026-01-01", "2026-02-16", "2026-02-17", "2026-02-18", "2026-04-03", "2026-06-19"],
+  types: ["全新開發", "優化", "移植開發", "Done", "QA進測前", "待確認"],
+  statuses: ["待辦", "進行中", "完成", "擱置"],
+};
 
 const defaultProject: ProjectMeta = {
   projectType: "機台、線上",
@@ -206,6 +220,28 @@ function columnWidth(values: Array<string | number | undefined>, min: number, ma
   return Math.ceil(Math.min(max, Math.max(min, widest + extra)));
 }
 
+function toSelectOptions(values: string[]) {
+  return values.filter(Boolean).map((value) => ({ label: value, value }));
+}
+
+function normalizeSettingList(values: unknown, fallback: string[]) {
+  if (!Array.isArray(values)) {
+    return fallback;
+  }
+  const normalized = values.map((value) => String(value).trim()).filter(Boolean);
+  return normalized.length ? Array.from(new Set(normalized)) : fallback;
+}
+
+function normalizeSettings(settings?: Partial<AppSettings>): AppSettings {
+  return {
+    departments: normalizeSettingList(settings?.departments, defaultSettings.departments),
+    agents: normalizeSettingList(settings?.agents, defaultSettings.agents),
+    holidays: normalizeSettingList(settings?.holidays, defaultSettings.holidays),
+    types: normalizeSettingList(settings?.types, defaultSettings.types),
+    statuses: normalizeSettingList(settings?.statuses, defaultSettings.statuses),
+  };
+}
+
 function weekLabel(date: Date) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
@@ -276,6 +312,8 @@ function blankEpic(nextIndex: number): Epic {
 export default function Home() {
   const [project, setProject] = useState<ProjectMeta>(defaultProject);
   const [epics, setEpics] = useState<Epic[]>(sampleEpics);
+  const [settings, setSettings] = useState<AppSettings>(defaultSettings);
+  const [activePage, setActivePage] = useState<"planner" | "settings">("planner");
   const [editingEpicId, setEditingEpicId] = useState<string | null>(null);
   const [collapsedEpicIds, setCollapsedEpicIds] = useState<Set<string>>(new Set());
   const [hasLoaded, setHasLoaded] = useState(false);
@@ -284,11 +322,13 @@ export default function Home() {
     const saved = window.localStorage.getItem(STORAGE_KEY);
     if (saved) {
       try {
-        const parsed = JSON.parse(saved) as { project?: ProjectMeta; epics?: Epic[] };
+        const parsed = JSON.parse(saved) as { project?: ProjectMeta; epics?: Epic[]; settings?: Partial<AppSettings> };
         setProject(parsed.project ?? defaultProject);
         setEpics((parsed.epics ?? sampleEpics).map(normalizeEpic));
+        setSettings(normalizeSettings(parsed.settings));
       } catch {
         setEpics(sampleEpics);
+        setSettings(defaultSettings);
       }
     }
     setHasLoaded(true);
@@ -296,11 +336,14 @@ export default function Home() {
 
   useEffect(() => {
     if (hasLoaded) {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ project, epics }));
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ project, epics, settings }));
     }
-  }, [epics, hasLoaded, project]);
+  }, [epics, hasLoaded, project, settings]);
 
   const editingEpic = epics.find((epic) => epic.id === editingEpicId) ?? null;
+  const typeSelectOptions = useMemo(() => toSelectOptions(settings.types), [settings.types]);
+  const departmentSelectOptions = useMemo(() => toSelectOptions(settings.departments), [settings.departments]);
+  const assigneeSelectOptions = useMemo(() => toSelectOptions(settings.agents), [settings.agents]);
   const tableRows = useMemo<PlannerTableRow[]>(
     () =>
       epics.flatMap((epic) => {
@@ -353,8 +396,8 @@ export default function Home() {
         520,
         46,
       ),
-      type: columnWidth(["Type", ...typeOptions, ...textRows.map((item) => item?.type)], 104, 150, 34),
-      assignee: columnWidth(["Assignee", ...assignees, ...textRows.map((item) => item?.assignee)], 128, 180, 48),
+      type: columnWidth(["Type", ...settings.types, ...textRows.map((item) => item?.type)], 104, 180, 34),
+      assignee: columnWidth(["Assignee", ...settings.agents, ...textRows.map((item) => item?.assignee)], 128, 220, 48),
       startDate: columnWidth(["Start date", ...textRows.map((item) => item?.startDate.slice(2))], 104, 118, 24),
       finishDate: columnWidth(["Finish date", ...textRows.map((item) => item?.finishDate.slice(2))], 104, 118, 24),
       duration: columnWidth(["Duration", ...textRows.map((item) => item?.duration)], 76, 96, 18),
@@ -364,7 +407,7 @@ export default function Home() {
       ...widths,
       total: Object.values(widths).reduce((total, width) => total + width, 0),
     };
-  }, [tableRows]);
+  }, [settings.agents, settings.types, tableRows]);
   const tableColumns = useMemo<TableProps<PlannerTableRow>["columns"]>(
     () => [
       {
@@ -594,7 +637,12 @@ export default function Home() {
   }
 
   function addEpic() {
-    const epic = blankEpic(epics.length + 1);
+    const epic = {
+      ...blankEpic(epics.length + 1),
+      assignee: settings.agents[0] ?? "Simon",
+      department: settings.departments[0] ?? "PM",
+      type: settings.types[0] ?? "全新開發",
+    };
     setEpics((current) => [...current, epic]);
     setCollapsedEpicIds((current) => {
       const next = new Set(current);
@@ -604,11 +652,30 @@ export default function Home() {
     setEditingEpicId(epic.id);
   }
 
+  function updateSettingsList(key: keyof AppSettings, values: string[]) {
+    setSettings((current) => ({ ...current, [key]: values }));
+  }
+
+  function addHoliday() {
+    setSettings((current) => ({ ...current, holidays: [...current.holidays, formatIso(new Date())] }));
+  }
+
   function addTask(epicId: string) {
     setEpics((current) =>
       current.map((epic) =>
         epic.id === epicId
-          ? { ...epic, tasks: [...epic.tasks, blankTask(epic.tasks.length + 1, epic.wbs)] }
+          ? {
+              ...epic,
+              tasks: [
+                ...epic.tasks,
+                {
+                  ...blankTask(epic.tasks.length + 1, epic.wbs),
+                  assignee: settings.agents[0] ?? "Simon",
+                  department: settings.departments[0] ?? "企劃",
+                  type: settings.types[0] ?? "待確認",
+                },
+              ],
+            }
           : epic,
       ),
     );
@@ -647,104 +714,159 @@ export default function Home() {
         },
       }}
     >
-      <main className="planner">
-      <section className="project-header" aria-label="專案資訊">
-        <div className="project-title">
-          <Space size={8}>
-            <ProjectOutlined />
-            <span>RSG Project plan</span>
-          </Space>
-          <Typography.Title level={3}>{project.projectName}</Typography.Title>
-        </div>
-        <Field label="Project type">
-          <Input
-            value={project.projectType}
-            onChange={(event) => setProject({ ...project, projectType: event.target.value })}
-          />
-        </Field>
-        <Field label="Start date">
-          <DatePicker
-            value={dayjs(project.startDate)}
-            onChange={(date) => setProject({ ...project, startDate: date ? date.format("YYYY-MM-DD") : project.startDate })}
-            suffixIcon={<CalendarOutlined />}
-            allowClear={false}
-            inputReadOnly
-          />
-        </Field>
-        <Field label="WK">
-          <Input value={project.wk} onChange={(event) => setProject({ ...project, wk: event.target.value })} />
-        </Field>
-        <Button type="primary" icon={<PlusOutlined />} onClick={addEpic}>
-          新增 EPIC
-        </Button>
-      </section>
+      <main className="backend-shell">
+        <Layout className="backend-layout">
+          <Layout.Sider className="backend-sider" width={216}>
+            <div className="backend-brand">
+              <ProjectOutlined />
+              <span>RSG Project plan</span>
+            </div>
+            <Menu
+              mode="inline"
+              selectedKeys={[activePage]}
+              onClick={({ key }) => setActivePage(key as "planner" | "settings")}
+              items={[
+                { key: "planner", icon: <TableOutlined />, label: "專案計畫" },
+                { key: "settings", icon: <SettingOutlined />, label: "設定" },
+              ]}
+            />
+          </Layout.Sider>
+          <Layout.Content className="backend-content">
+            {activePage === "planner" ? (
+              <>
+                <section className="project-header" aria-label="專案資訊">
+                  <div className="project-title">
+                    <Typography.Title level={3}>{project.projectName}</Typography.Title>
+                  </div>
+                  <Field label="Project type">
+                    <Input
+                      value={project.projectType}
+                      onChange={(event) => setProject({ ...project, projectType: event.target.value })}
+                    />
+                  </Field>
+                  <Field label="Start date">
+                    <DatePicker
+                      value={dayjs(project.startDate)}
+                      onChange={(date) => setProject({ ...project, startDate: date ? date.format("YYYY-MM-DD") : project.startDate })}
+                      suffixIcon={<CalendarOutlined />}
+                      allowClear={false}
+                      inputReadOnly
+                    />
+                  </Field>
+                  <Field label="WK">
+                    <Input value={project.wk} onChange={(event) => setProject({ ...project, wk: event.target.value })} />
+                  </Field>
+                  <Button type="primary" icon={<PlusOutlined />} onClick={addEpic}>
+                    新增 EPIC
+                  </Button>
+                </section>
 
-      <section
-        className="sheet"
-        style={{ "--table-width": `${tableWidths.total}px` } as React.CSSProperties}
-        aria-label="Epic 與 Task 甘特圖"
-      >
-        <div className="left-pane">
-          <Table<PlannerTableRow>
-            bordered
-            className="planner-table"
-            columns={tableColumns}
-            dataSource={tableRows}
-            pagination={false}
-            rowClassName={(row) => `${row.rowKind}-row`}
-            size="small"
-            tableLayout="fixed"
-          />
-        </div>
+                <section
+                  className="sheet"
+                  style={{ "--table-width": `${tableWidths.total}px` } as React.CSSProperties}
+                  aria-label="Epic 與 Task 甘特圖"
+                >
+                  <div className="left-pane">
+                    <Table<PlannerTableRow>
+                      bordered
+                      className="planner-table"
+                      columns={tableColumns}
+                      dataSource={tableRows}
+                      pagination={false}
+                      rowClassName={(row) => `${row.rowKind}-row`}
+                      size="small"
+                      tableLayout="fixed"
+                    />
+                  </div>
 
-        <div
-          className="gantt-pane"
-          style={{ "--day-count": days.length } as React.CSSProperties}
-          aria-label="日視圖甘特圖"
-        >
-          <div className="week-row">
-            {weeks.map((day) => (
-              <span
-                className="week-label"
-                key={day.toISOString()}
-                style={{ gridColumn: `${getOffset(formatIso(day)) + 1} / span 7` }}
-              >
-                {weekLabel(day)}
-              </span>
-            ))}
-          </div>
-          <div className="day-row">
-            {days.map((day) => (
-              <span key={day.toISOString()}>{dayLabel(day)}</span>
-            ))}
-          </div>
-          <div className="weekday-row">
-            {days.map((day) => (
-              <span key={day.toISOString()}>{weekday(day)}</span>
-            ))}
-          </div>
-          {tableRows.map((row) => {
-            if (!row.item) {
-              return <div className="gantt-line section-line" key={row.key} />;
-            }
-            const isEpic = row.rowKind === "epic";
-            const offset = getOffset(row.item.startDate);
-            const span = Math.max(1, getDuration(row.item.startDate, row.item.finishDate));
-            return (
-              <div className={isEpic ? "gantt-line epic-line" : "gantt-line"} key={row.key}>
-                <span
-                  className={isEpic ? "bar epic-bar" : "bar"}
-                  style={{
-                    gridColumn: `${offset + 1} / span ${span}`,
-                    "--progress": `${row.item.progress}%`,
-                  } as React.CSSProperties}
-                  title={`${row.item.title} ${row.item.startDate} - ${row.item.finishDate}`}
-                />
-              </div>
-            );
-          })}
-        </div>
-      </section>
+                  <div
+                    className="gantt-pane"
+                    style={{ "--day-count": days.length } as React.CSSProperties}
+                    aria-label="日視圖甘特圖"
+                  >
+                    <div className="week-row">
+                      {weeks.map((day) => (
+                        <span
+                          className="week-label"
+                          key={day.toISOString()}
+                          style={{ gridColumn: `${getOffset(formatIso(day)) + 1} / span 7` }}
+                        >
+                          {weekLabel(day)}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="day-row">
+                      {days.map((day) => (
+                        <span key={day.toISOString()}>{dayLabel(day)}</span>
+                      ))}
+                    </div>
+                    <div className="weekday-row">
+                      {days.map((day) => (
+                        <span key={day.toISOString()}>{weekday(day)}</span>
+                      ))}
+                    </div>
+                    {tableRows.map((row) => {
+                      if (!row.item) {
+                        return <div className="gantt-line section-line" key={row.key} />;
+                      }
+                      const isEpic = row.rowKind === "epic";
+                      const offset = getOffset(row.item.startDate);
+                      const span = Math.max(1, getDuration(row.item.startDate, row.item.finishDate));
+                      return (
+                        <div className={isEpic ? "gantt-line epic-line" : "gantt-line"} key={row.key}>
+                          <span
+                            className={isEpic ? "bar epic-bar" : "bar"}
+                            style={{
+                              gridColumn: `${offset + 1} / span ${span}`,
+                              "--progress": `${row.item.progress}%`,
+                            } as React.CSSProperties}
+                            title={`${row.item.title} ${row.item.startDate} - ${row.item.finishDate}`}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              </>
+            ) : (
+              <section className="settings-page" aria-label="設定">
+                <div className="settings-header">
+                  <div>
+                    <Typography.Title level={3}>設定</Typography.Title>
+                    <Typography.Text type="secondary">管理專案計畫表使用的下拉選項與假日資料。</Typography.Text>
+                  </div>
+                </div>
+                <div className="settings-grid">
+                  <EditableOptionCard
+                    title="部門設定"
+                    values={settings.departments}
+                    onChange={(values) => updateSettingsList("departments", values)}
+                  />
+                  <EditableOptionCard
+                    title="Agent設定"
+                    values={settings.agents}
+                    onChange={(values) => updateSettingsList("agents", values)}
+                  />
+                  <HolidaySettingsCard
+                    values={settings.holidays}
+                    onAdd={addHoliday}
+                    onChange={(values) => updateSettingsList("holidays", values)}
+                  />
+                  <EditableOptionCard
+                    title="Type設定"
+                    values={settings.types}
+                    onChange={(values) => updateSettingsList("types", values)}
+                  />
+                  <EditableOptionCard
+                    title="狀態設定"
+                    values={settings.statuses}
+                    onChange={(values) => updateSettingsList("statuses", values)}
+                  />
+                </div>
+              </section>
+            )}
+          </Layout.Content>
+        </Layout>
 
       <Modal
         className="epic-modal"
@@ -881,6 +1003,90 @@ export default function Home() {
       </Modal>
       </main>
     </ConfigProvider>
+  );
+}
+
+function EditableOptionCard({
+  title,
+  values,
+  onChange,
+}: {
+  title: string;
+  values: string[];
+  onChange: (values: string[]) => void;
+}) {
+  function updateValue(index: number, value: string) {
+    onChange(values.map((item, itemIndex) => (itemIndex === index ? value : item)));
+  }
+
+  function deleteValue(index: number) {
+    onChange(values.filter((_, itemIndex) => itemIndex !== index));
+  }
+
+  return (
+    <Card
+      className="settings-card"
+      title={title}
+      extra={
+        <Button size="small" icon={<PlusOutlined />} onClick={() => onChange([...values, "新增項目"])}>
+          新增
+        </Button>
+      }
+    >
+      <div className="settings-list">
+        {values.map((value, index) => (
+          <Space.Compact className="settings-row" key={`${title}-${index}`}>
+            <Input value={value} onChange={(event) => updateValue(index, event.target.value)} />
+            <Button danger icon={<DeleteOutlined />} onClick={() => deleteValue(index)} aria-label={`刪除 ${value}`} />
+          </Space.Compact>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function HolidaySettingsCard({
+  values,
+  onAdd,
+  onChange,
+}: {
+  values: string[];
+  onAdd: () => void;
+  onChange: (values: string[]) => void;
+}) {
+  function updateValue(index: number, value: string) {
+    onChange(values.map((item, itemIndex) => (itemIndex === index ? value : item)));
+  }
+
+  function deleteValue(index: number) {
+    onChange(values.filter((_, itemIndex) => itemIndex !== index));
+  }
+
+  return (
+    <Card
+      className="settings-card"
+      title="國定假日設定"
+      extra={
+        <Button size="small" icon={<PlusOutlined />} onClick={onAdd}>
+          新增
+        </Button>
+      }
+    >
+      <div className="settings-list">
+        {values.map((value, index) => (
+          <Space.Compact className="settings-row" key={`holiday-${index}`}>
+            <DatePicker
+              allowClear={false}
+              inputReadOnly
+              value={dayjs(value)}
+              onChange={(date) => updateValue(index, date ? date.format("YYYY-MM-DD") : value)}
+            />
+            <Input value={value} onChange={(event) => updateValue(index, event.target.value)} />
+            <Button danger icon={<DeleteOutlined />} onClick={() => deleteValue(index)} aria-label={`刪除 ${value}`} />
+          </Space.Compact>
+        ))}
+      </div>
+    </Card>
   );
 }
 

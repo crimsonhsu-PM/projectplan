@@ -38,8 +38,37 @@ select {
   font: inherit;
 }
 
-.planner {
+.backend-shell {
   min-height: 100vh;
+}
+
+.backend-layout {
+  background: var(--surface);
+  min-height: 100vh;
+}
+
+.backend-sider {
+  background: #ffffff !important;
+  border-right: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.backend-brand {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  color: #1f2a44;
+  display: flex;
+  font-size: 14px;
+  font-weight: 700;
+  gap: 8px;
+  height: 58px;
+  padding: 0 18px;
+}
+
+.backend-content {
+  min-width: 0;
   padding: 18px;
 }
 
@@ -66,6 +95,54 @@ select {
 
 .project-title .ant-typography {
   margin: 4px 0 0;
+}
+
+.settings-page {
+  margin: 0 auto;
+  max-width: 1680px;
+}
+
+.settings-header {
+  align-items: center;
+  background: var(--white);
+  border: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  padding: 18px;
+}
+
+.settings-header .ant-typography {
+  margin: 0;
+}
+
+.settings-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(280px, 1fr));
+}
+
+.settings-card {
+  border-radius: 6px;
+}
+
+.settings-card .ant-card-head {
+  min-height: 48px;
+}
+
+.settings-list {
+  display: grid;
+  gap: 8px;
+}
+
+.settings-row {
+  display: flex;
+  width: 100%;
+}
+
+.settings-row .ant-input,
+.settings-row .ant-picker {
+  flex: 1;
 }
 
 .project-header .ant-picker,
@@ -364,7 +441,19 @@ select {
 }
 
 @media (max-width: 900px) {
-  .planner {
+  .backend-layout {
+    display: block;
+  }
+
+  .backend-sider {
+    height: auto;
+    position: static;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+  }
+
+  .backend-content {
     padding: 10px;
   }
 
@@ -382,7 +471,8 @@ select {
   }
 
   .form-grid,
-  .task-card {
+  .task-card,
+  .settings-grid {
     grid-template-columns: 1fr;
   }
 }
