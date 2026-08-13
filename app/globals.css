@@ -419,6 +419,8 @@ select {
   overflow-x: auto;
   overflow-y: hidden;
   padding: 12px;
+  position: relative;
+  z-index: 1;
 }
 
 .gantt-scroll {
@@ -512,8 +514,10 @@ select {
   gap: 10px;
   grid-area: tasks;
   min-width: 0;
-  overflow-x: auto;
+  overflow: visible;
   padding-top: 16px;
+  position: relative;
+  z-index: 4;
 }
 
 .task-list-header {
@@ -582,18 +586,18 @@ select {
 
 .task-cell-pinned {
   position: sticky !important;
-  z-index: 3;
+  z-index: 30;
 }
 
 .task-columns-header .task-cell-pinned {
   background: #ffffff;
-  box-shadow: 10px 0 16px rgba(30, 40, 70, 0.06);
-  z-index: 5;
+  box-shadow: 14px 0 22px rgba(30, 40, 70, 0.1);
+  z-index: 40;
 }
 
 .task-item .task-cell-pinned {
   background: #f8f9fd !important;
-  box-shadow: 10px 0 16px rgba(30, 40, 70, 0.06);
+  box-shadow: 14px 0 22px rgba(30, 40, 70, 0.1);
 }
 
 .task-item .ant-select.task-cell-pinned .ant-select-selector,
