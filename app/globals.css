@@ -280,11 +280,9 @@ select {
 .form-grid .ant-picker,
 .form-grid .ant-input,
 .form-grid .ant-select,
-.form-grid .ant-input-number,
 .task-card .ant-picker,
 .task-card .ant-input,
-.task-card .ant-select,
-.task-card .ant-input-number {
+.task-card .ant-select {
   width: 100%;
 }
 
@@ -989,7 +987,7 @@ select {
   border-radius: 8px;
   display: grid;
   gap: 8px;
-  grid-template-columns: minmax(220px, 1.6fr) repeat(2, minmax(110px, 0.7fr)) repeat(2, 136px) 62px 72px minmax(120px, 0.8fr) 72px;
+  grid-template-columns: minmax(220px, 1.6fr) repeat(2, minmax(110px, 0.7fr)) repeat(2, 136px) 62px minmax(120px, 0.8fr) 72px;
   padding: 10px;
 }
 

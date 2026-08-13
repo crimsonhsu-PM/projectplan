@@ -9,7 +9,6 @@ import {
   ConfigProvider,
   DatePicker,
   Input,
-  InputNumber,
   Layout,
   Menu,
   Modal,
@@ -1535,15 +1534,6 @@ export default function Home() {
                   }
                 />
               </Field>
-              <Field label="完成度">
-                <InputNumber
-                  disabled
-                  min="0"
-                  max="100"
-                  value={editingEpic.progress}
-                  addonAfter="%"
-                />
-              </Field>
             </div>
 
             <div className="task-toolbar">
@@ -1591,14 +1581,6 @@ export default function Home() {
                     aria-label={`${task.wbs} 結束日期`}
                   />
                   <span className="task-workdays">{getWorkdayDuration(task.startDate, task.finishDate, holidayDates)} 天</span>
-                  <InputNumber
-                    min="0"
-                    max="100"
-                    value={task.progress}
-                    addonAfter="%"
-                    onChange={(value) => updateTask(editingEpic.id, task.id, { progress: Number(value) })}
-                    aria-label={`${task.wbs} 進度`}
-                  />
                   <Input
                     value={task.rm}
                     onChange={(event) => updateTask(editingEpic.id, task.id, { rm: event.target.value })}
