@@ -39,6 +39,17 @@ select {
   font: inherit;
 }
 
+.app-loading {
+  align-items: center;
+  background: var(--surface);
+  color: #7b8499;
+  display: flex;
+  font-size: 14px;
+  font-weight: 700;
+  justify-content: center;
+  min-height: 100vh;
+}
+
 .backend-shell {
   min-height: 100vh;
 }
@@ -175,7 +186,7 @@ select {
   box-shadow: var(--shadow);
   display: grid;
   gap: 18px;
-  grid-template-columns: minmax(280px, 1fr) 220px 190px 132px 132px 132px;
+  grid-template-columns: minmax(280px, 1fr) 190px 132px 132px 132px;
   margin: 0 0 26px;
   min-width: 1450px;
   padding: 22px;
@@ -212,6 +223,478 @@ select {
   height: 40px;
   justify-self: stretch;
   padding-inline: 12px;
+}
+
+.project-view-tabs {
+  background: var(--white);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  box-sizing: border-box;
+  margin: 0 0 20px;
+  min-width: 1450px;
+  padding: 0 22px;
+  width: max(100%, 1450px);
+}
+
+.project-view-tabs .ant-tabs-nav {
+  margin: 0;
+}
+
+.project-view-tabs .ant-tabs-tab {
+  font-size: 15px;
+  font-weight: 800;
+  padding-block: 17px;
+}
+
+.epic-filter-bar {
+  align-items: center;
+  background: var(--white);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  box-sizing: border-box;
+  display: flex;
+  gap: 24px;
+  justify-content: flex-start;
+  margin: 0 0 26px;
+  min-width: 1450px;
+  padding: 0 22px;
+  width: max(100%, 1450px);
+}
+
+.epic-category-tabs {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.epic-category-tabs .ant-tabs-nav {
+  margin: 0;
+}
+
+.people-category-summary {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  min-height: 54px;
+}
+
+.people-category-toggle {
+  background: #f7f9fd !important;
+  border: 1px solid #d9e2f2 !important;
+  border-radius: 7px;
+  color: #7b8499;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  margin-inline-end: 0;
+  padding: 5px 10px;
+  transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+}
+
+.people-category-toggle:hover {
+  border-color: #91b5ff;
+  color: #0d5bff;
+}
+
+.people-category-toggle:focus-visible {
+  outline: 2px solid rgb(22 93 255 / 22%);
+  outline-offset: 2px;
+}
+
+.people-category-toggle-machine[data-active="true"] {
+  background: #eef4ff !important;
+  border-color: #bfd2ff !important;
+  color: #0d5bff !important;
+}
+
+.people-category-toggle-online[data-active="true"] {
+  background: #e9fbfb !important;
+  border-color: #bceeed !important;
+  color: #07878b !important;
+}
+
+.epic-filter-controls {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 10px;
+}
+
+.epic-filter-controls .ant-select {
+  min-width: 180px;
+}
+
+.completed-project-toggle {
+  align-items: center;
+  color: #526079;
+  display: flex;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.completed-project-toggle .ant-switch {
+  flex: 0 0 auto;
+}
+
+.manpower-header {
+  align-items: center;
+  background: var(--white);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  box-sizing: border-box;
+  display: flex;
+  justify-content: space-between;
+  margin: 0 0 26px;
+  min-width: 1450px;
+  padding: 22px 26px;
+  width: max(100%, 1450px);
+}
+
+.manpower-header .ant-typography {
+  margin: 0;
+}
+
+.manpower-header-summary {
+  display: flex;
+  gap: 10px;
+}
+
+.people-header-actions {
+  align-items: flex-end;
+  display: flex;
+  gap: 18px;
+}
+
+.people-start-date label {
+  color: var(--muted);
+  display: grid;
+  font-size: 12px;
+  gap: 5px;
+}
+
+.people-start-date .ant-picker {
+  min-width: 180px;
+}
+
+.manpower-header-summary span {
+  background: #eef4ff;
+  border: 1px solid #d9e6ff;
+  border-radius: 999px;
+  color: #0d5bff;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 8px 14px;
+}
+
+.people-schedule-page {
+  display: grid;
+  gap: 18px;
+  min-width: 1450px;
+  width: max(100%, 1450px);
+}
+
+.people-schedule-card {
+  background: #ffffff;
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  display: grid;
+  grid-template-columns: 520px minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.people-schedule-details {
+  border-right: 1px solid #e7edf7;
+  min-width: 0;
+}
+
+.people-schedule-person {
+  align-items: center;
+  background: #f7f9fd;
+  border-bottom: 1px solid #e7edf7;
+  display: flex;
+  justify-content: space-between;
+  min-height: 84px;
+  padding: 14px 20px;
+}
+
+.people-schedule-person .ant-typography {
+  margin: 0 0 6px;
+}
+
+.people-schedule-person-stats {
+  align-items: flex-end;
+  color: #526079;
+  display: grid;
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 5px;
+  text-align: right;
+}
+
+.people-project-list {
+  display: grid;
+}
+
+.people-project-row {
+  align-items: center;
+  border-bottom: 1px solid #edf0f7;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1fr) 190px;
+  height: 74px;
+  outline: none;
+  padding: 10px 20px;
+  transition: background-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.people-project-row:hover,
+.people-project-row:focus-visible {
+  background: #f7faff;
+  box-shadow: inset 3px 0 0 #5b8ff9;
+}
+
+.people-project-row:last-child {
+  border-bottom: 0;
+}
+
+.people-project-title {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.people-project-title strong {
+  color: #172033;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.people-project-meta {
+  color: #526079;
+  display: grid;
+  font-size: 12px;
+  gap: 5px;
+  text-align: right;
+}
+
+.people-project-meta small {
+  color: #8d95a8;
+  font-size: 11px;
+}
+
+.people-schedule-gantt-panel {
+  background: #f7f9fd;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.people-schedule-gantt-rows .gantt-board-row {
+  height: 74px;
+  min-height: 74px;
+}
+
+.people-schedule-gantt-rows .gantt-board-bar {
+  height: 14px;
+}
+
+.people-schedule-empty {
+  background: #ffffff;
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  color: #8d95a8;
+  font-size: 14px;
+  padding: 44px;
+  text-align: center;
+}
+
+.manpower-page {
+  background: #ffffff;
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  box-sizing: border-box;
+  margin: 0;
+  min-width: 1450px;
+  overflow: hidden;
+  width: max(100%, 1450px);
+}
+
+.manpower-table .ant-table-thead > tr > th {
+  background: #f7f9fd;
+  color: #526079;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.manpower-table .ant-table-tbody > tr > td {
+  padding-block: 18px;
+  vertical-align: middle;
+}
+
+.manpower-project-cell {
+  display: grid;
+  gap: 8px;
+}
+
+.manpower-project-cell > strong {
+  color: #172033;
+  font-size: 15px;
+}
+
+.manpower-period {
+  align-items: center;
+  color: #526079;
+  display: flex;
+  font-size: 12px;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.manpower-workdays {
+  color: #0d5bff;
+}
+
+.manpower-table .ant-table-expanded-row > td {
+  background: #f8faff !important;
+  padding: 16px 18px 20px 28px !important;
+}
+
+.manpower-detail-table {
+  border: 1px solid #e8edf6;
+  border-radius: 8px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.manpower-detail-table .ant-table-container {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.manpower-detail-table .ant-table {
+  margin: 0 !important;
+  width: 100% !important;
+}
+
+.manpower-detail-table .ant-table-thead > tr > th {
+  background: #eef4ff;
+  padding-block: 10px;
+}
+
+.manpower-detail-table .ant-table-tbody > tr > td {
+  background: #ffffff;
+  padding-block: 12px;
+}
+
+.manpower-agent-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.manpower-agent {
+  align-items: center;
+  background: #f4f7fc;
+  border: 1px solid #e4eaf4;
+  border-radius: 7px;
+  cursor: help;
+  display: inline-grid;
+  gap: 2px;
+  padding: 5px 8px;
+  transition: background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.manpower-agent:hover,
+.manpower-agent:focus-visible {
+  background: #eef4ff;
+  border-color: #9bbcff;
+  box-shadow: 0 0 0 3px rgba(13, 91, 255, 0.1);
+  outline: none;
+}
+
+.manpower-agent small {
+  color: #7b8499;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.manpower-agent-progress {
+  align-items: center;
+  display: grid;
+  gap: 5px;
+  grid-template-columns: minmax(34px, 1fr) auto;
+  margin-top: 2px;
+  min-width: 62px;
+  width: 100%;
+}
+
+.manpower-agent-progress .ant-progress {
+  line-height: 1;
+  margin: 0;
+}
+
+.manpower-agent-progress .ant-progress-inner {
+  background: #dce5f3;
+}
+
+.manpower-agent-progress > small {
+  color: #526079;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.manpower-task-popover {
+  display: grid;
+  gap: 0;
+  max-height: 360px;
+  overflow-y: auto;
+  width: min(390px, calc(100vw - 48px));
+}
+
+.manpower-task-popover-row {
+  align-items: flex-start;
+  border-bottom: 1px solid #edf0f7;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: max-content minmax(0, 1fr);
+  padding: 9px 2px;
+}
+
+.manpower-task-popover-row:last-child {
+  border-bottom: 0;
+}
+
+.manpower-task-popover-row > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.manpower-task-popover-title {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.manpower-task-popover-title .ant-tag {
+  flex: 0 0 auto;
+  margin-inline-end: 0;
+}
+
+.manpower-task-popover-row strong {
+  color: #172033;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.manpower-task-popover-row small {
+  color: #7b8499;
+  font-size: 11px;
+  white-space: nowrap;
 }
 
 .import-modal {
@@ -349,14 +832,23 @@ select {
   width: 100%;
 }
 
+.agent-settings-row {
+  gap: 12px;
+}
+
 .colored-settings-row {
   align-items: center;
   gap: 10px;
 }
 
 .settings-row .ant-input,
-.settings-row .ant-picker {
+.settings-row .ant-picker,
+.settings-row .ant-select {
   flex: 1;
+}
+
+.agent-settings-row .agent-department-select {
+  flex: 0 0 132px;
 }
 
 .colored-settings-row .ant-input {
@@ -550,6 +1042,25 @@ select {
   color: #0d5bff;
 }
 
+.epic-star-button.ant-btn {
+  color: #aeb6c6;
+  flex: 0 0 28px;
+  padding-inline: 0;
+  width: 28px;
+}
+
+.epic-star-button.ant-btn:hover,
+.epic-star-button.ant-btn:focus-visible {
+  background: #fff8dc;
+  color: #e5a900;
+}
+
+.epic-star-button-active.ant-btn,
+.epic-star-button-active.ant-btn:hover,
+.epic-star-button-active.ant-btn:focus-visible {
+  color: #f5b800;
+}
+
 .epic-title-button {
   font-size: 16px;
   font-weight: 800;
@@ -587,7 +1098,7 @@ select {
 .epic-fields {
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(150px, 0.9fr) minmax(150px, 0.9fr) minmax(280px, 1.4fr);
+  grid-template-columns: minmax(100px, 0.6fr) minmax(150px, 0.9fr) minmax(150px, 0.9fr) minmax(280px, 1.4fr);
   margin-top: 14px;
 }
 
@@ -1277,6 +1788,56 @@ select {
     grid-template-columns: 1fr;
     min-width: 0;
     width: auto;
+  }
+
+  .project-view-tabs,
+  .epic-filter-bar {
+    min-width: 0;
+    width: auto;
+  }
+
+  .epic-filter-bar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+    padding: 0 12px 12px;
+  }
+
+  .epic-filter-controls {
+    flex-wrap: wrap;
+  }
+
+  .epic-filter-controls .ant-select {
+    flex: 1 1 180px;
+  }
+
+  .manpower-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+    width: auto;
+  }
+
+  .people-header-actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .manpower-page {
+    min-width: 0;
+    width: auto;
+  }
+
+  .people-schedule-page {
+    min-width: 0;
+    overflow-x: auto;
+    width: auto;
+  }
+
+  .people-schedule-card {
+    grid-template-columns: 420px 700px;
+    min-width: 1120px;
   }
 
   .project-title {

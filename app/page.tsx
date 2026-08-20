@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Avatar,
   Button,
   Card,
   Checkbox,
@@ -14,17 +13,19 @@ import {
   Layout,
   Menu,
   Modal,
+  Popover,
   Progress,
   Select,
   Space,
+  Switch,
   Table,
   Tag,
+  Tabs,
   Typography,
 } from "antd";
 import type { TableProps } from "antd";
 import {
   CalendarOutlined,
-  BellOutlined,
   DeleteOutlined,
   DownloadOutlined,
   DownOutlined,
@@ -34,9 +35,10 @@ import {
   ProjectOutlined,
   RightOutlined,
   SettingOutlined,
+  StarFilled,
+  StarOutlined,
   TableOutlined,
   UploadOutlined,
-  UserOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 
@@ -56,6 +58,8 @@ type Task = {
 
 type Epic = Task & {
   priority: string;
+  category: EpicCategory;
+  starred?: boolean;
   tasks: Task[];
 };
 
@@ -79,9 +83,15 @@ type SettingOption = {
   color: string;
 };
 
+type AgentOption = {
+  id: string;
+  name: string;
+  department: string;
+};
+
 type AppSettings = {
   departments: string[];
-  agents: string[];
+  agents: AgentOption[];
   holidays: HolidayRange[];
   types: SettingOption[];
   statuses: SettingOption[];
@@ -101,6 +111,7 @@ type ImportMode = "append" | "replace";
 
 type ImportedRow = {
   kind: string;
+  category: string;
   wbs: string;
   priority: string;
   title: string;
@@ -125,10 +136,76 @@ type StoredProjectData = {
 };
 
 type SyncStatus = "loading" | "saved" | "saving" | "offline" | "error";
+type PlannerView = "schedule" | "manpower" | "people";
 
+type ManpowerTaskSummary = {
+  key: string;
+  wbs: string;
+  title: string;
+  status: string;
+  completed: boolean;
+  startDate: string;
+  finishDate: string;
+  workdays: number;
+};
+
+type ManpowerAgentSummary = {
+  key: string;
+  name: string;
+  completedTaskCount: number;
+  taskCount: number;
+  workdays: number;
+  tasks: ManpowerTaskSummary[];
+};
+
+type ManpowerDepartmentSummary = {
+  key: string;
+  name: string;
+  taskCount: number;
+  workdays: number;
+  agents: ManpowerAgentSummary[];
+};
+
+type ProjectManpowerSummary = {
+  key: string;
+  wbs: string;
+  category: EpicCategory;
+  title: string;
+  startDate: string;
+  finishDate: string;
+  taskCount: number;
+  peopleCount: number;
+  workdays: number;
+  departments: ManpowerDepartmentSummary[];
+};
+
+type PersonnelProjectSummary = {
+  key: string;
+  wbs: string;
+  category: EpicCategory;
+  title: string;
+  startDate: string;
+  finishDate: string;
+  taskCount: number;
+  completedTaskCount: number;
+  tasks: ManpowerTaskSummary[];
+};
+
+type PersonnelScheduleSummary = {
+  key: string;
+  name: string;
+  departments: string[];
+  projectCount: number;
+  taskCount: number;
+  projects: PersonnelProjectSummary[];
+};
+
+const epicCategoryOptions = ["機台", "線上"] as const;
+type EpicCategory = (typeof epicCategoryOptions)[number];
 const STORAGE_KEY = "rsg-project-plan-v2";
 const VISIBLE_TASK_COLUMNS_KEY = "rsg-project-plan-visible-task-columns-v1";
 const EPIC_MAIN_WIDTH_KEY = "rsg-project-plan-epic-main-width-v1";
+const ALL_FILTER_VALUE = "__all__";
 const MIN_EPIC_MAIN_WIDTH = 760;
 const MAX_EPIC_MAIN_WIDTH = 1100;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -148,12 +225,34 @@ type TaskColumnKey = (typeof taskColumnDefinitions)[number]["key"];
 
 const defaultSettings: AppSettings = {
   departments: ["企劃", "前端", "後端", "QA", "PM"],
-  agents: ["Simon", "PM", "Clara", "Anna", "Della", "shock", "GMS", "Will"],
+  agents: [
+    { id: "agent-simon", name: "Simon", department: "企劃" },
+    { id: "agent-pm", name: "PM", department: "PM" },
+    { id: "agent-clara", name: "Clara", department: "企劃" },
+    { id: "agent-anna", name: "Anna", department: "企劃" },
+    { id: "agent-della", name: "Della", department: "企劃" },
+    { id: "agent-shock", name: "shock", department: "企劃" },
+    { id: "agent-gms", name: "GMS", department: "企劃" },
+    { id: "agent-will", name: "Will", department: "企劃" },
+  ],
   holidays: [
-    { id: "holiday-2026-01-01", startDate: "2026-01-01", endDate: "2026-01-01", note: "元旦" },
-    { id: "holiday-2026-02-16", startDate: "2026-02-16", endDate: "2026-02-18", note: "春節" },
-    { id: "holiday-2026-04-03", startDate: "2026-04-03", endDate: "2026-04-03", note: "兒童節補假" },
-    { id: "holiday-2026-06-19", startDate: "2026-06-19", endDate: "2026-06-19", note: "端午節" },
+    { id: "holiday-2026-01-01", startDate: "2026-01-01", endDate: "2026-01-01", note: "元旦｜開國紀念日" },
+    { id: "holiday-2026-02-16", startDate: "2026-02-16", endDate: "2026-02-16", note: "除夕｜春節連假開始" },
+    { id: "holiday-2026-02-17", startDate: "2026-02-17", endDate: "2026-02-17", note: "春節｜初一" },
+    { id: "holiday-2026-02-18", startDate: "2026-02-18", endDate: "2026-02-18", note: "春節｜初二" },
+    { id: "holiday-2026-02-19", startDate: "2026-02-19", endDate: "2026-02-19", note: "春節｜初三" },
+    { id: "holiday-2026-02-20", startDate: "2026-02-20", endDate: "2026-02-20", note: "春節補假｜初四（調整放假）" },
+    { id: "holiday-2026-02-23", startDate: "2026-02-23", endDate: "2026-02-23", note: "春節補假｜初五（補初一落在週二）" },
+    { id: "holiday-2026-02-27", startDate: "2026-02-27", endDate: "2026-02-27", note: "228 調整放假｜形成 4 天連假" },
+    { id: "holiday-2026-02-28", startDate: "2026-02-28", endDate: "2026-02-28", note: "和平紀念日｜週六" },
+    { id: "holiday-2026-04-03", startDate: "2026-04-03", endDate: "2026-04-03", note: "兒童節｜提前放假（與清明併休）" },
+    { id: "holiday-2026-04-04", startDate: "2026-04-04", endDate: "2026-04-04", note: "清明節｜週六" },
+    { id: "holiday-2026-04-05", startDate: "2026-04-05", endDate: "2026-04-05", note: "清明節｜週六" },
+    { id: "holiday-2026-04-06", startDate: "2026-04-06", endDate: "2026-04-06", note: "清明補假｜週一補假" },
+    { id: "holiday-2026-06-19", startDate: "2026-06-19", endDate: "2026-06-19", note: "端午節｜農曆五月初五" },
+    { id: "holiday-2026-09-25", startDate: "2026-09-25", endDate: "2026-09-25", note: "中秋節｜農曆八月十五" },
+    { id: "holiday-2026-10-10", startDate: "2026-10-10", endDate: "2026-10-10", note: "國慶日｜週六" },
+    { id: "holiday-2026-10-12", startDate: "2026-10-12", endDate: "2026-10-12", note: "國慶補假｜週一補假" },
   ],
   types: [
     { id: "type-new", label: "全新開發", color: "#0d5bff" },
@@ -184,6 +283,7 @@ const sampleEpics: Epic[] = [
     wbs: "24",
     department: "PM",
     priority: "1",
+    category: "機台",
     title: "新遊戲開發 - 決戰賽特2",
     type: "全新開發",
     assignee: "Simon",
@@ -273,6 +373,183 @@ function getWorkdayDuration(startDate: string, finishDate: string, holidayDates:
   return duration;
 }
 
+function buildProjectManpowerSummary(epic: Epic, holidayDates: Set<string>): ProjectManpowerSummary {
+  const departmentMap = new Map<string, Map<string, ManpowerAgentSummary>>();
+  let startDate = "";
+  let finishDate = "";
+
+  epic.tasks.forEach((task) => {
+    if (!startDate || task.startDate < startDate) {
+      startDate = task.startDate;
+    }
+    if (!finishDate || task.finishDate > finishDate) {
+      finishDate = task.finishDate;
+    }
+
+    const department = task.department.trim() || "未設定部門";
+    const agent = task.assignee.trim() || "未指派";
+    const workdays = getWorkdayDuration(task.startDate, task.finishDate, holidayDates);
+    const agents = departmentMap.get(department) ?? new Map<string, ManpowerAgentSummary>();
+    const current = agents.get(agent) ?? {
+      key: `${epic.id}-${department}-${agent}`,
+      name: agent,
+      completedTaskCount: 0,
+      taskCount: 0,
+      workdays: 0,
+      tasks: [],
+    };
+    agents.set(agent, {
+      ...current,
+      completedTaskCount: current.completedTaskCount + (isCompletedTask(task) ? 1 : 0),
+      taskCount: current.taskCount + 1,
+      workdays: current.workdays + workdays,
+      tasks: [
+        ...current.tasks,
+        {
+          key: task.id,
+          wbs: task.wbs,
+          title: task.title,
+          status: task.type.trim() || "未設定",
+          completed: isCompletedTask(task),
+          startDate: task.startDate,
+          finishDate: task.finishDate,
+          workdays,
+        },
+      ],
+    });
+    departmentMap.set(department, agents);
+  });
+
+  const departments = Array.from(departmentMap.entries()).map(([name, agentMap]) => {
+    const agents = Array.from(agentMap.values()).sort(
+      (left, right) => right.workdays - left.workdays || left.name.localeCompare(right.name),
+    );
+    return {
+      key: `${epic.id}-${name}`,
+      name,
+      taskCount: agents.reduce((total, agent) => total + agent.taskCount, 0),
+      workdays: agents.reduce((total, agent) => total + agent.workdays, 0),
+      agents,
+    };
+  }).sort((left, right) => right.workdays - left.workdays || left.name.localeCompare(right.name));
+
+  return {
+    key: epic.id,
+    wbs: epic.wbs,
+    category: epic.category,
+    title: epic.title,
+    startDate,
+    finishDate,
+    taskCount: epic.tasks.length,
+    peopleCount: new Set(epic.tasks.map((task) => task.assignee.trim()).filter(Boolean)).size,
+    workdays: departments.reduce((total, department) => total + department.workdays, 0),
+    departments,
+  };
+}
+
+function buildPersonnelScheduleSummaries(epics: Epic[], holidayDates: Set<string>): PersonnelScheduleSummary[] {
+  const people = new Map<
+    string,
+    {
+      key: string;
+      name: string;
+      departments: Set<string>;
+      projects: Map<string, PersonnelProjectSummary>;
+    }
+  >();
+
+  epics.forEach((epic) => {
+    epic.tasks.forEach((task) => {
+      const name = task.assignee.trim() || "未指派";
+      const person = people.get(name) ?? {
+        key: `person-${name}`,
+        name,
+        departments: new Set<string>(),
+        projects: new Map<string, PersonnelProjectSummary>(),
+      };
+      person.departments.add(task.department.trim() || "未設定部門");
+
+      const currentProject = person.projects.get(epic.id) ?? {
+        key: `${name}-${epic.id}`,
+        wbs: epic.wbs,
+        category: epic.category,
+        title: epic.title,
+        startDate: task.startDate,
+        finishDate: task.finishDate,
+        taskCount: 0,
+        completedTaskCount: 0,
+        tasks: [],
+      };
+      person.projects.set(epic.id, {
+        ...currentProject,
+        startDate: task.startDate < currentProject.startDate ? task.startDate : currentProject.startDate,
+        finishDate: task.finishDate > currentProject.finishDate ? task.finishDate : currentProject.finishDate,
+        taskCount: currentProject.taskCount + 1,
+        completedTaskCount: currentProject.completedTaskCount + (isCompletedTask(task) ? 1 : 0),
+        tasks: [
+          ...currentProject.tasks,
+          {
+            key: task.id,
+            wbs: task.wbs,
+            title: task.title,
+            status: task.type.trim() || "未設定",
+            completed: isCompletedTask(task),
+            startDate: task.startDate,
+            finishDate: task.finishDate,
+            workdays: getWorkdayDuration(task.startDate, task.finishDate, holidayDates),
+          },
+        ],
+      });
+      people.set(name, person);
+    });
+  });
+
+  return Array.from(people.values())
+    .map((person) => {
+      const projects = Array.from(person.projects.values()).sort(
+        (left, right) => {
+          const leftProgress = left.taskCount ? left.completedTaskCount / left.taskCount : 0;
+          const rightProgress = right.taskCount ? right.completedTaskCount / right.taskCount : 0;
+          const leftCompleted = leftProgress === 1;
+          const rightCompleted = rightProgress === 1;
+          if (leftCompleted !== rightCompleted) {
+            return Number(leftCompleted) - Number(rightCompleted);
+          }
+          const categoryDifference =
+            epicCategoryOptions.indexOf(left.category) - epicCategoryOptions.indexOf(right.category);
+          return (
+            categoryDifference ||
+            rightProgress - leftProgress ||
+            left.startDate.localeCompare(right.startDate) ||
+            left.title.localeCompare(right.title)
+          );
+        },
+      );
+      return {
+        key: person.key,
+        name: person.name,
+        departments: Array.from(person.departments).sort((left, right) => left.localeCompare(right)),
+        projectCount: projects.length,
+        taskCount: projects.reduce((total, project) => total + project.taskCount, 0),
+        projects,
+      };
+    })
+    .sort(
+      (left, right) => {
+        const departmentDifference = (left.departments[0] ?? "未設定部門").localeCompare(
+          right.departments[0] ?? "未設定部門",
+          "zh-Hant",
+        );
+        return (
+          departmentDifference ||
+          right.projectCount - left.projectCount ||
+          right.taskCount - left.taskCount ||
+          left.name.localeCompare(right.name)
+        );
+      },
+    );
+}
+
 function escapeSpreadsheetCell(value: unknown) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -291,10 +568,11 @@ function exportProjectExcel(project: ProjectMeta, epics: Epic[], holidayDates: S
     spreadsheetRow(["Project type", project.projectType]),
     spreadsheetRow(["Start date", project.startDate]),
     spreadsheetRow([]),
-    spreadsheetRow(["類型", "WBS", "Priority", "Epic/Task", "Type/狀態", "部門", "Agent", "Start", "Finish", "工作天數", "完成度", "RM/JIRA"]),
+    spreadsheetRow(["類型", "標籤", "WBS", "Priority", "Epic/Task", "Type/狀態", "部門", "Agent", "Start", "Finish", "工作天數", "完成度", "RM/JIRA"]),
     ...epics.flatMap((epic) => [
       spreadsheetRow([
         "EPIC",
+        epic.category,
         epic.wbs,
         epic.priority,
         epic.title,
@@ -310,6 +588,7 @@ function exportProjectExcel(project: ProjectMeta, epics: Epic[], holidayDates: S
       ...epic.tasks.map((task) =>
         spreadsheetRow([
           "TASK",
+          epic.category,
           task.wbs,
           "",
           task.title,
@@ -339,10 +618,10 @@ function exportProjectExcel(project: ProjectMeta, epics: Epic[], holidayDates: S
 
 function downloadImportTemplate() {
   const rows = [
-    spreadsheetRow(["類型", "WBS", "Priority", "Epic/Task", "Type/狀態", "部門", "Agent", "Start", "Finish", "RM/JIRA"]),
-    spreadsheetRow(["EPIC", "24", "1", "新遊戲開發 - 決戰賽特2", "全新開發", "PM", "Simon", "2026-05-05", "2026-07-15", ""]),
-    spreadsheetRow(["TASK", "24.1", "", "企劃規格書", "完成", "企劃", "Simon", "2026-05-05", "2026-05-20", ""]),
-    spreadsheetRow(["TASK", "24.2", "", "overview", "完成", "企劃", "Simon", "2026-05-05", "2026-05-20", ""]),
+    spreadsheetRow(["類型", "標籤", "WBS", "Priority", "Epic/Task", "Type/狀態", "部門", "Agent", "Start", "Finish", "RM/JIRA"]),
+    spreadsheetRow(["EPIC", "機台", "24", "1", "新遊戲開發 - 決戰賽特2", "全新開發", "PM", "Simon", "2026-05-05", "2026-07-15", ""]),
+    spreadsheetRow(["TASK", "機台", "24.1", "", "企劃規格書", "完成", "企劃", "Simon", "2026-05-05", "2026-05-20", ""]),
+    spreadsheetRow(["TASK", "機台", "24.2", "", "overview", "完成", "企劃", "Simon", "2026-05-05", "2026-05-20", ""]),
   ];
   const html = `<!doctype html><html><head><meta charset="UTF-8"></head><body><table>${rows.join("")}</table></body></html>`;
   downloadTextFile("RSG匯入範例.xls", html, "application/vnd.ms-excel;charset=utf-8");
@@ -430,30 +709,81 @@ function parseSpreadsheetText(text: string) {
   return parseDelimitedRows(text);
 }
 
+function decodeSpreadsheetBuffer(buffer: ArrayBuffer) {
+  const bytes = new Uint8Array(buffer);
+  if (bytes[0] === 0xff && bytes[1] === 0xfe) {
+    return new TextDecoder("utf-16le").decode(bytes.subarray(2));
+  }
+  if (bytes[0] === 0xfe && bytes[1] === 0xff) {
+    return new TextDecoder("utf-16be").decode(bytes.subarray(2));
+  }
+
+  const sample = new TextDecoder("latin1").decode(bytes.subarray(0, 2048));
+  const charset = sample.match(/charset\s*=\s*["']?\s*([\w-]+)/i)?.[1];
+  if (charset) {
+    try {
+      return new TextDecoder(charset).decode(bytes);
+    } catch {
+      // Unsupported labels fall back to UTF-8 below.
+    }
+  }
+  return new TextDecoder("utf-8").decode(bytes);
+}
+
+function headerColumnIndex(headers: string[], aliases: string[], fallback: number) {
+  const index = headers.findIndex((header) => aliases.some((alias) => header.toLowerCase() === alias.toLowerCase()));
+  return index >= 0 ? index : fallback;
+}
+
 function mapImportedRows(rows: string[][]): ImportedRow[] {
   const headerIndex = rows.findIndex((row) => row.some((cell) => cell.toLowerCase() === "wbs"));
+  const headers = headerIndex >= 0 ? rows[headerIndex].map((cell) => cell.trim()) : [];
+  const hasCategoryColumn = headers.some((header) => ["標籤", "tag", "category"].includes(header.toLowerCase()));
+  const offset = hasCategoryColumn ? 1 : 0;
+  const indexes = {
+    kind: headerColumnIndex(headers, ["類型", "kind"], 0),
+    category: headerColumnIndex(headers, ["標籤", "tag", "category"], -1),
+    wbs: headerColumnIndex(headers, ["wbs"], 1 + offset),
+    priority: headerColumnIndex(headers, ["priority"], 2 + offset),
+    title: headerColumnIndex(headers, ["epic/task", "epic/task description", "task", "title"], 3 + offset),
+    type: headerColumnIndex(headers, ["type/狀態", "type", "狀態", "status"], 4 + offset),
+    department: headerColumnIndex(headers, ["部門", "department"], 5 + offset),
+    assignee: headerColumnIndex(headers, ["agent", "assignee"], 6 + offset),
+    startDate: headerColumnIndex(headers, ["start", "start date"], 7 + offset),
+    finishDate: headerColumnIndex(headers, ["finish", "finish date"], 8 + offset),
+    rm: headerColumnIndex(headers, ["rm/jira", "rm", "jira"], 9 + offset),
+  };
   const dataRows = rows.slice(headerIndex >= 0 ? headerIndex + 1 : 0);
   return dataRows
     .map((row, index) => ({
-      kind: row[0]?.trim().toUpperCase() ?? "",
-      wbs: row[1]?.trim() ?? "",
-      priority: row[2]?.trim() ?? "",
-      title: row[3]?.trim() ?? "",
-      type: row[4]?.trim() ?? "",
-      department: row[5]?.trim() ?? "",
-      assignee: row[6]?.trim() ?? "",
-      startDate: parseImportedDate(row[7] ?? ""),
-      finishDate: parseImportedDate(row[8] ?? ""),
-      rm: row[9]?.trim() ?? "",
+      kind: row[indexes.kind]?.trim().toUpperCase() ?? "",
+      category: indexes.category >= 0 ? row[indexes.category]?.trim() ?? "" : "",
+      wbs: row[indexes.wbs]?.trim() ?? "",
+      priority: row[indexes.priority]?.trim() ?? "",
+      title: row[indexes.title]?.trim() ?? "",
+      type: row[indexes.type]?.trim() ?? "",
+      department: row[indexes.department]?.trim() ?? "",
+      assignee: row[indexes.assignee]?.trim() ?? "",
+      startDate: parseImportedDate(row[indexes.startDate] ?? ""),
+      finishDate: parseImportedDate(row[indexes.finishDate] ?? ""),
+      rm: row[indexes.rm]?.trim() ?? "",
       rowNumber: (headerIndex >= 0 ? headerIndex + 2 : 1) + index,
     }))
     .filter((row) => row.kind || row.wbs || row.title);
+}
+
+function renumberTasks(tasks: Task[], epicWbs: string) {
+  return tasks.map((task, index) => ({ ...task, wbs: `${epicWbs}.${index + 1}` }));
 }
 
 function buildImportPreview(rows: ImportedRow[], settings: AppSettings): ImportPreview {
   const errors: string[] = [];
   const epicMap = new Map<string, Epic>();
   const orderedEpics: Epic[] = [];
+
+  if (!rows.length) {
+    return { epics: [], errors: ["找不到可匯入的資料，請確認檔案包含表格標題與 EPIC / TASK 資料列"] };
+  }
 
   rows.forEach((row) => {
     if (row.kind !== "EPIC" && row.kind !== "TASK") {
@@ -478,10 +808,11 @@ function buildImportPreview(rows: ImportedRow[], settings: AppSettings): ImportP
         id: `import-epic-${Date.now()}-${orderedEpics.length}`,
         wbs: row.wbs,
         priority: row.priority || String(orderedEpics.length + 1),
+        category: normalizeEpicCategory(row.category),
         title: row.title,
         type: row.type || settings.types[0]?.label || "全新開發",
         department: row.department || "PM",
-        assignee: row.assignee || settings.agents[0] || "Simon",
+        assignee: row.assignee || agentNames(settings.agents)[0] || "Simon",
         startDate: row.startDate,
         finishDate: row.finishDate,
         duration: getDuration(row.startDate, row.finishDate),
@@ -507,7 +838,7 @@ function buildImportPreview(rows: ImportedRow[], settings: AppSettings): ImportP
         title: row.title,
         type: row.type || settings.statuses[0]?.label || "待辦",
         department: row.department || settings.departments[0] || "企劃",
-        assignee: row.assignee || settings.agents[0] || "Simon",
+        assignee: row.assignee || agentNames(settings.agents)[0] || "Simon",
         startDate: row.startDate,
         finishDate: row.finishDate,
         duration: getDuration(row.startDate, row.finishDate),
@@ -534,23 +865,6 @@ function formatIso(date: Date) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
-}
-
-function getDateRange(epics: Epic[]) {
-  const dates = epics.flatMap((epic) => [
-    epic.startDate,
-    epic.finishDate,
-    ...epic.tasks.flatMap((task) => [task.startDate, task.finishDate]),
-  ]);
-  const validDates = dates
-    .map((date) => new Date(`${date}T00:00:00`))
-    .filter((date) => !Number.isNaN(date.getTime()));
-  const min = validDates.length ? new Date(Math.min(...validDates.map((date) => date.getTime()))) : new Date();
-  const max = validDates.length ? new Date(Math.max(...validDates.map((date) => date.getTime()))) : addDays(min, 30);
-  return {
-    start: addDays(min, -3),
-    end: addDays(max, 7),
-  };
 }
 
 function getGanttRange(projectStartDate: string, epics: Epic[]) {
@@ -616,6 +930,10 @@ function toSelectOptions(values: string[]) {
   return values.filter(Boolean).map((value) => ({ label: value, value }));
 }
 
+function agentNames(agents: AgentOption[]) {
+  return agents.map((agent) => agent.name).filter(Boolean);
+}
+
 function toColoredSelectOptions(values: SettingOption[]) {
   return values
     .filter((value) => value.label)
@@ -640,6 +958,47 @@ function normalizeSettingList(values: unknown, fallback: string[]) {
   }
   const normalized = values.map((value) => String(value).trim()).filter(Boolean);
   return normalized.length ? Array.from(new Set(normalized)) : fallback;
+}
+
+function normalizeAgentList(values: unknown, fallback: AgentOption[], departments = defaultSettings.departments) {
+  if (!Array.isArray(values)) {
+    return fallback;
+  }
+  const seen = new Set<string>();
+  const normalized = values
+    .map((value, index) => {
+      if (typeof value === "string") {
+        const [maybeDepartment, maybeName] = value.includes("|") ? value.split("|").map((item) => item.trim()) : ["", value.trim()];
+        const name = maybeName || maybeDepartment;
+        if (!name || seen.has(name)) {
+          return null;
+        }
+        seen.add(name);
+        const fallbackAgent = fallback.find((agent) => agent.name === name);
+        return {
+          id: fallbackAgent?.id ?? `agent-${name}-${index}`,
+          name,
+          department: maybeName ? maybeDepartment : fallbackAgent?.department ?? departments[0] ?? "企劃",
+        };
+      }
+      if (value && typeof value === "object") {
+        const item = value as Partial<AgentOption> & { label?: string; value?: string };
+        const name = String(item.name ?? item.label ?? item.value ?? "").trim();
+        if (!name || seen.has(name)) {
+          return null;
+        }
+        seen.add(name);
+        const fallbackAgent = fallback.find((agent) => agent.name === name);
+        return {
+          id: String(item.id ?? fallbackAgent?.id ?? `agent-${name}-${index}`),
+          name,
+          department: String(item.department ?? fallbackAgent?.department ?? departments[0] ?? "企劃").trim(),
+        };
+      }
+      return null;
+    })
+    .filter((value): value is AgentOption => Boolean(value));
+  return normalized.length ? normalized : fallback;
 }
 
 function normalizeColoredSettingList(values: unknown, fallback: SettingOption[]) {
@@ -719,9 +1078,10 @@ function normalizeHolidayRanges(values: unknown, fallback: HolidayRange[]) {
 }
 
 function normalizeSettings(settings?: Partial<AppSettings>): AppSettings {
+  const departments = normalizeSettingList(settings?.departments, defaultSettings.departments);
   return {
-    departments: normalizeSettingList(settings?.departments, defaultSettings.departments),
-    agents: normalizeSettingList(settings?.agents, defaultSettings.agents),
+    departments,
+    agents: normalizeAgentList(settings?.agents, defaultSettings.agents, departments),
     holidays: normalizeHolidayRanges(settings?.holidays, defaultSettings.holidays),
     types: normalizeColoredSettingList(settings?.types, defaultSettings.types),
     statuses: normalizeColoredSettingList(settings?.statuses, defaultSettings.statuses),
@@ -742,6 +1102,10 @@ function dayLabel(date: Date) {
 
 function weekday(date: Date) {
   return ["日", "一", "二", "三", "四", "五", "六"][date.getDay()];
+}
+
+function normalizeEpicCategory(value: unknown): EpicCategory {
+  return epicCategoryOptions.includes(value as EpicCategory) ? (value as EpicCategory) : "機台";
 }
 
 function normalizeTask(task: Task): Task {
@@ -769,11 +1133,33 @@ function isCompletedTask(task: Task) {
   return value === "done" || task.type.trim() === "完成";
 }
 
+function getManpowerTaskStatusColor(task: ManpowerTaskSummary) {
+  if (task.completed) {
+    return "success";
+  }
+
+  switch (task.status.trim().toLowerCase()) {
+    case "進行中":
+    case "in progress":
+      return "processing";
+    case "擱置":
+    case "blocked":
+      return "warning";
+    case "待辦":
+    case "todo":
+      return "default";
+    default:
+      return "blue";
+  }
+}
+
 function normalizeEpic(epic: Epic): Epic {
   const tasks = epic.tasks.map(normalizeTask);
   return {
     ...epic,
+    category: normalizeEpicCategory(epic.category),
     department: epic.department || "PM",
+    starred: Boolean(epic.starred),
     tasks,
     duration: getDuration(epic.startDate, epic.finishDate),
     progress: getEpicProgress(tasks),
@@ -801,6 +1187,8 @@ function blankEpic(nextIndex: number): Epic {
     wbs,
     department: "PM",
     priority: String(nextIndex),
+    category: "機台",
+    starred: false,
     title: "新增 EPIC",
     type: "全新開發",
     assignee: "Simon",
@@ -818,6 +1206,14 @@ export default function Home() {
   const [epics, setEpics] = useState<Epic[]>(sampleEpics);
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
   const [activePage, setActivePage] = useState<"planner" | "settings">("planner");
+  const [activePlannerView, setActivePlannerView] = useState<PlannerView>("schedule");
+  const [activeEpicCategory, setActiveEpicCategory] = useState<EpicCategory>("機台");
+  const [visiblePersonnelCategories, setVisiblePersonnelCategories] = useState<EpicCategory[]>(
+    () => [...epicCategoryOptions],
+  );
+  const [departmentFilter, setDepartmentFilter] = useState<string>();
+  const [agentFilter, setAgentFilter] = useState<string>();
+  const [showCompletedProjects, setShowCompletedProjects] = useState(true);
   const [editingEpicId, setEditingEpicId] = useState<string | null>(null);
   const [collapsedEpicIds, setCollapsedEpicIds] = useState<Set<string>>(new Set());
   const [draggingEpicId, setDraggingEpicId] = useState<string | null>(null);
@@ -831,15 +1227,22 @@ export default function Home() {
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
   const [importFileName, setImportFileName] = useState("");
   const [isImportDragging, setIsImportDragging] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("loading");
   const importInputRef = useRef<HTMLInputElement | null>(null);
   const syncingGanttScrollRef = useRef(false);
 
   useEffect(() => {
+    setIsHydrated(true);
+  }, []);
+
+  useEffect(() => {
     function applyStoredData(data: StoredProjectData) {
+      const nextEpics = (data.epics ?? sampleEpics).map(normalizeEpic);
       setProject(data.project ?? defaultProject);
-      setEpics((data.epics ?? sampleEpics).map(normalizeEpic));
+      setEpics(nextEpics);
+      setCollapsedEpicIds(new Set(nextEpics.map((epic) => epic.id)));
       setSettings(normalizeSettings(data.settings));
     }
 
@@ -945,15 +1348,111 @@ export default function Home() {
   const typeSelectOptions = useMemo(() => toColoredSelectOptions(settings.types), [settings.types]);
   const statusSelectOptions = useMemo(() => toColoredSelectOptions(settings.statuses), [settings.statuses]);
   const departmentSelectOptions = useMemo(() => toSelectOptions(settings.departments), [settings.departments]);
-  const assigneeSelectOptions = useMemo(() => toSelectOptions(settings.agents), [settings.agents]);
+  const assigneeNames = useMemo(() => agentNames(settings.agents), [settings.agents]);
+  const assigneeSelectOptions = useMemo(() => toSelectOptions(assigneeNames), [assigneeNames]);
+  const epicCategorySelectOptions = useMemo(() => toSelectOptions([...epicCategoryOptions]), []);
+  const filterDepartmentOptions = useMemo(
+    () =>
+      [
+        { label: "全部部門", value: ALL_FILTER_VALUE },
+        ...toSelectOptions(
+          Array.from(
+            new Set([
+              ...settings.departments,
+              ...epics.flatMap((epic) => epic.tasks.map((task) => task.department.trim()).filter(Boolean)),
+            ]),
+          ).sort((left, right) => left.localeCompare(right)),
+        ),
+      ],
+    [epics, settings.departments],
+  );
+  const filterAgentOptions = useMemo(
+    () =>
+      [
+        { label: "全部人員", value: ALL_FILTER_VALUE },
+        ...toSelectOptions(
+          Array.from(
+            new Set([
+              ...assigneeNames,
+              ...epics.flatMap((epic) => epic.tasks.map((task) => task.assignee.trim()).filter(Boolean)),
+            ]),
+          ).sort((left, right) => left.localeCompare(right)),
+        ),
+      ],
+    [assigneeNames, epics],
+  );
+  const filteredEpics = useMemo(
+    () =>
+      epics.flatMap((epic) => {
+        const hasDepartmentFilter = Boolean(departmentFilter && departmentFilter !== ALL_FILTER_VALUE);
+        const hasAgentFilter = Boolean(agentFilter && agentFilter !== ALL_FILTER_VALUE);
+        if (!hasDepartmentFilter && !hasAgentFilter) {
+          return [epic];
+        }
+        const tasks = epic.tasks.filter(
+          (task) =>
+            (!hasDepartmentFilter || task.department.trim() === departmentFilter) &&
+            (!hasAgentFilter || task.assignee.trim() === agentFilter),
+        );
+        return tasks.length ? [{ ...epic, tasks }] : [];
+      }),
+    [agentFilter, departmentFilter, epics],
+  );
+  const projectFilteredEpics = useMemo(
+    () =>
+      showCompletedProjects
+        ? filteredEpics
+        : filteredEpics.filter((epic) => epic.progress < 100),
+    [filteredEpics, showCompletedProjects],
+  );
+  const visibleEpics = useMemo(
+    () =>
+      projectFilteredEpics
+        .filter((epic) => normalizeEpicCategory(epic.category) === activeEpicCategory)
+        .sort((left, right) => Number(Boolean(right.starred)) - Number(Boolean(left.starred))),
+    [activeEpicCategory, projectFilteredEpics],
+  );
   const holidayDates = useMemo(() => getHolidayDateSet(settings.holidays), [settings.holidays]);
+  const manpowerSummaries = useMemo(
+    () => visibleEpics.map((epic) => buildProjectManpowerSummary(epic, holidayDates)),
+    [holidayDates, visibleEpics],
+  );
+  const personnelEpics = useMemo(
+    () =>
+      filteredEpics.filter((epic) =>
+        visiblePersonnelCategories.includes(normalizeEpicCategory(epic.category)),
+      ),
+    [filteredEpics, visiblePersonnelCategories],
+  );
+  const personnelScheduleSummaries = useMemo(
+    () => {
+      const summaries = buildPersonnelScheduleSummaries(personnelEpics, holidayDates);
+      if (showCompletedProjects) {
+        return summaries;
+      }
+      return summaries
+        .map((person) => {
+          const projects = person.projects.filter(
+            (project) => project.completedTaskCount < project.taskCount,
+          );
+          return {
+            ...person,
+            projectCount: projects.length,
+            taskCount: projects.reduce((total, project) => total + project.taskCount, 0),
+            projects,
+          };
+        })
+        .filter((person) => person.projects.length > 0);
+    },
+    [holidayDates, personnelEpics, showCompletedProjects],
+  );
   const visibleTaskColumnDefinitions = useMemo(
     () => taskColumnDefinitions.filter((column) => visibleTaskColumns.has(column.key)),
     [visibleTaskColumns],
   );
   const tableRows = useMemo<PlannerTableRow[]>(
     () =>
-      epics.flatMap((epic) => {
+      visibleEpics.flatMap((epic) => {
         const epicRow = {
           key: epic.id,
           rowKind: "epic" as const,
@@ -981,10 +1480,18 @@ export default function Home() {
           })),
         ];
       }),
-    [collapsedEpicIds, epics],
+    [collapsedEpicIds, visibleEpics],
   );
-  const { start, end } = useMemo(() => getGanttRange(project.startDate, epics), [epics, project.startDate]);
+  const { start, end } = useMemo(() => getGanttRange(project.startDate, visibleEpics), [project.startDate, visibleEpics]);
   const days = useMemo(() => enumerateDays(start, end), [start, end]);
+  const personnelRange = useMemo(
+    () => getGanttRange(project.startDate, personnelEpics),
+    [personnelEpics, project.startDate],
+  );
+  const personnelDays = useMemo(
+    () => enumerateDays(personnelRange.start, personnelRange.end),
+    [personnelRange],
+  );
   const weeks = useMemo(() => days.filter((day) => day.getDay() === 1), [days]);
   const ganttWeeks = useMemo(() => {
     const segments: Date[][] = [];
@@ -1011,7 +1518,7 @@ export default function Home() {
         46,
       ),
       type: columnWidth(["Type", ...typeLabels, ...textRows.map((item) => item?.type)], 104, 180, 34),
-      assignee: columnWidth(["Assignee", ...settings.agents, ...textRows.map((item) => item?.assignee)], 128, 220, 48),
+      assignee: columnWidth(["Assignee", ...assigneeNames, ...textRows.map((item) => item?.assignee)], 128, 220, 48),
       startDate: columnWidth(["Start date", ...textRows.map((item) => item?.startDate.slice(2))], 104, 118, 24),
       finishDate: columnWidth(["Finish date", ...textRows.map((item) => item?.finishDate.slice(2))], 104, 118, 24),
       duration: columnWidth(["Duration", ...textRows.map((item) => item?.duration)], 76, 96, 18),
@@ -1021,7 +1528,7 @@ export default function Home() {
       ...widths,
       total: Object.values(widths).reduce((total, width) => total + width, 0),
     };
-  }, [settings.agents, tableRows, typeLabels]);
+  }, [assigneeNames, tableRows, typeLabels]);
   const tableColumns = useMemo<TableProps<PlannerTableRow>["columns"]>(
     () => [
       {
@@ -1269,10 +1776,6 @@ export default function Home() {
     });
   }
 
-  function renumberTasks(tasks: Task[], epicWbs: string) {
-    return tasks.map((task, index) => ({ ...task, wbs: `${epicWbs}.${index + 1}` }));
-  }
-
   function reorderTask(epicId: string, sourceTaskId: string, targetTaskId: string, position: "before" | "after" = "before") {
     if (sourceTaskId === targetTaskId) {
       return;
@@ -1316,12 +1819,13 @@ export default function Home() {
     const finishDate = formatIso(addDays(new Date(`${startDate}T00:00:00`), 14));
     const epic = {
       ...baseEpic,
-      assignee: settings.agents[0] ?? "Simon",
+      assignee: assigneeNames[0] ?? "Simon",
+      category: activeEpicCategory,
       department: settings.departments[0] ?? "PM",
       startDate,
       finishDate,
       type: typeLabels[0] ?? "全新開發",
-      tasks: baseEpic.tasks.map((task) => ({ ...task, assignee: settings.agents[0] ?? "Simon", startDate, finishDate: startDate })),
+      tasks: baseEpic.tasks.map((task) => ({ ...task, assignee: assigneeNames[0] ?? "Simon", startDate, finishDate: startDate })),
     };
     setEpics((current) => [...current, epic]);
     setCollapsedEpicIds((current) => {
@@ -1347,8 +1851,12 @@ export default function Home() {
     });
   }
 
-  function updateSettingsList(key: "departments" | "agents", values: string[]) {
+  function updateSettingsList(key: "departments", values: string[]) {
     setSettings((current) => ({ ...current, [key]: values }));
+  }
+
+  function updateAgents(agents: AgentOption[]) {
+    setSettings((current) => ({ ...current, agents }));
   }
 
   function updateColoredSettingsList(key: "types" | "statuses", values: SettingOption[]) {
@@ -1356,12 +1864,11 @@ export default function Home() {
   }
 
   function addHoliday() {
-    const today = formatIso(new Date());
     setSettings((current) => ({
       ...current,
       holidays: [
         ...current.holidays,
-        { id: `holiday-${Date.now()}`, startDate: today, endDate: today, note: "新增假日" },
+        { id: `holiday-${Date.now()}`, startDate: "", endDate: "", note: "" },
       ],
     }));
   }
@@ -1380,7 +1887,7 @@ export default function Home() {
                 ...epic.tasks,
                 {
                   ...blankTask(epic.tasks.length + 1, epic.wbs),
-                  assignee: settings.agents[0] ?? "Simon",
+                  assignee: assigneeNames[0] ?? "Simon",
                   department: settings.departments[0] ?? "企劃",
                   type: statusLabels[0] ?? "待辦",
                 },
@@ -1440,18 +1947,18 @@ export default function Home() {
     resetImportState();
   }
 
-  function importFile(file: File) {
+  async function readImportCandidate(file: File) {
+    const text = decodeSpreadsheetBuffer(await file.arrayBuffer());
+    return buildImportPreview(mapImportedRows(parseSpreadsheetText(text)), settings);
+  }
+
+  async function importFile(file: File) {
     setImportFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = () => {
-      const text = String(reader.result ?? "");
-      const preview = buildImportPreview(mapImportedRows(parseSpreadsheetText(text)), settings);
-      setImportPreview(preview);
-    };
-    reader.onerror = () => {
+    try {
+      setImportPreview(await readImportCandidate(file));
+    } catch {
       setImportPreview({ epics: [], errors: ["檔案讀取失敗，請重新選擇檔案"] });
-    };
-    reader.readAsText(file);
+    }
   }
 
   function confirmImport() {
@@ -1538,6 +2045,14 @@ export default function Home() {
     );
   }
 
+  if (!isHydrated) {
+    return (
+      <main className="app-loading" aria-label="系統載入中">
+        <span>資料載入中</span>
+      </main>
+    );
+  }
+
   return (
     <ConfigProvider
       theme={{
@@ -1561,7 +2076,7 @@ export default function Home() {
           <Layout.Sider className="backend-sider" width={216}>
             <div className="backend-brand">
               <ProjectOutlined />
-              <span>RSG project</span>
+              <span>Project Demo</span>
             </div>
             <Menu
               mode="inline"
@@ -1575,26 +2090,33 @@ export default function Home() {
           </Layout.Sider>
           <Layout.Content className="backend-content">
             <header className="topbar topbar-end">
-              <Space size={18}>
-                <Typography.Text className={`sync-status sync-status-${syncStatus}`}>
-                  {syncStatus === "loading"
-                    ? "資料載入中"
-                    : syncStatus === "saving"
-                      ? "儲存中"
-                      : syncStatus === "saved"
-                        ? "已儲存"
-                        : syncStatus === "offline"
-                          ? "使用本機備援"
-                          : "儲存失敗"}
-                </Typography.Text>
-                <BellOutlined className="topbar-icon" />
-                <Avatar size={38} icon={<UserOutlined />} />
-                <Typography.Text className="topbar-user">瑪琳·索索</Typography.Text>
-              </Space>
+              <Typography.Text className={`sync-status sync-status-${syncStatus}`}>
+                {syncStatus === "loading"
+                  ? "資料載入中"
+                  : syncStatus === "saving"
+                    ? "儲存中"
+                    : syncStatus === "saved"
+                      ? "已儲存"
+                      : syncStatus === "offline"
+                        ? "使用本機備援"
+                        : "儲存失敗"}
+              </Typography.Text>
             </header>
             {activePage === "planner" ? (
               <>
-                <section className="project-header" aria-label="專案資訊">
+                <Tabs
+                  activeKey={activePlannerView}
+                  className="project-view-tabs"
+                  items={[
+                    { key: "schedule", label: "專案時程" },
+                    { key: "manpower", label: "專案人力" },
+                    { key: "people", label: "人員時程" },
+                  ]}
+                  onChange={(key) => setActivePlannerView(key as PlannerView)}
+                />
+
+                {activePlannerView === "schedule" ? (
+                  <section className="project-header" aria-label="專案資訊">
                   <div className="project-title">
                     <Input
                       aria-label="專案名稱"
@@ -1604,12 +2126,6 @@ export default function Home() {
                       onChange={(event) => setProject({ ...project, projectName: event.target.value })}
                     />
                   </div>
-                  <Field label="Project type">
-                    <Input
-                      value={project.projectType}
-                      onChange={(event) => setProject({ ...project, projectType: event.target.value })}
-                    />
-                  </Field>
                   <Field label="Start date">
                     <DatePicker
                       value={dayjs(project.startDate)}
@@ -1619,20 +2135,144 @@ export default function Home() {
                       inputReadOnly
                     />
                   </Field>
-                  <Button type="primary" icon={<PlusOutlined />} onClick={addEpic}>
-                    新增 EPIC
+                  <Button type="primary" icon={<PlusOutlined />} onClick={addEpic} aria-label="新增 EPIC">
+                    EPIC
                   </Button>
-                  <Button icon={<UploadOutlined />} onClick={() => setIsImportModalOpen(true)}>
-                    匯入 Excel
+                  <Button icon={<UploadOutlined />} onClick={() => setIsImportModalOpen(true)} aria-label="匯入 Excel">
+                    匯入
                   </Button>
-                  <Button icon={<DownloadOutlined />} onClick={() => exportProjectExcel(project, epics, holidayDates)}>
-                    匯出 Excel
+                  <Button icon={<DownloadOutlined />} onClick={() => exportProjectExcel(project, epics, holidayDates)} aria-label="匯出 Excel">
+                    匯出
                   </Button>
-                </section>
+                  </section>
+                ) : activePlannerView === "manpower" ? (
+                  <section className="manpower-header" aria-label="專案人力說明">
+                    <div>
+                      <Typography.Title level={3}>專案人力</Typography.Title>
+                      <Typography.Text type="secondary">
+                        以 EPIC 為專案彙總部門與 Agent；投入工作天依 Task 有效工作天數計算。
+                      </Typography.Text>
+                    </div>
+                    <div className="manpower-header-summary">
+                      <span>{visibleEpics.length} 個專案</span>
+                      <span>{manpowerSummaries.reduce((total, item) => total + item.workdays, 0).toLocaleString()} 工作天</span>
+                    </div>
+                  </section>
+                ) : (
+                  <section className="manpower-header" aria-label="人員時程說明">
+                    <div>
+                      <Typography.Title level={3}>人員時程</Typography.Title>
+                      <Typography.Text type="secondary">
+                        以 Agent 為主要維度；每個專案期間取該人員負責 Tasks 的最早開始日與最晚結束日。
+                      </Typography.Text>
+                    </div>
+                    <div className="people-header-actions">
+                      <div className="manpower-header-summary">
+                        <span>{personnelScheduleSummaries.length} 位人員</span>
+                        <span>
+                          {personnelScheduleSummaries.reduce((total, person) => total + person.projectCount, 0)} 個專案指派
+                        </span>
+                      </div>
+                      <div className="people-start-date">
+                        <Field label="Start date">
+                          <DatePicker
+                            aria-label="人員時程 Start date"
+                            value={dayjs(project.startDate)}
+                            onChange={(date) =>
+                              setProject({
+                                ...project,
+                                startDate: date ? date.format("YYYY-MM-DD") : project.startDate,
+                              })
+                            }
+                            suffixIcon={<CalendarOutlined />}
+                            allowClear={false}
+                            inputReadOnly
+                          />
+                        </Field>
+                      </div>
+                    </div>
+                  </section>
+                )}
 
-                <section className="project-board" aria-label="Epic 與 Task 專案列表">
+                <div className="epic-filter-bar" aria-label="專案篩選">
+                  {activePlannerView === "people" ? (
+                    <div className="people-category-summary" aria-label="人員時程專案類別">
+                      {epicCategoryOptions.map((category) => {
+                        const isActive = visiblePersonnelCategories.includes(category);
+                        const count = filteredEpics.filter(
+                          (epic) => normalizeEpicCategory(epic.category) === category,
+                        ).length;
+                        return (
+                          <Button
+                            aria-label={`${isActive ? "隱藏" : "顯示"}${category}專案`}
+                            aria-pressed={isActive}
+                            className={`people-category-toggle people-category-toggle-${category === "機台" ? "machine" : "online"}`}
+                            data-active={isActive}
+                            key={category}
+                            onClick={() =>
+                              setVisiblePersonnelCategories((current) => {
+                                if (current.includes(category)) {
+                                  return current.filter((item) => item !== category);
+                                }
+                                return epicCategoryOptions.filter(
+                                  (item) => item === category || current.includes(item),
+                                );
+                              })
+                            }
+                            size="small"
+                          >
+                            {category}（{count}）
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <Tabs
+                      activeKey={activeEpicCategory}
+                      className="epic-category-tabs"
+                      items={epicCategoryOptions.map((category) => ({
+                        key: category,
+                        label: `${category} (${filteredEpics.filter((epic) => normalizeEpicCategory(epic.category) === category).length})`,
+                      }))}
+                      onChange={(key) => setActiveEpicCategory(normalizeEpicCategory(key))}
+                    />
+                  )}
+                  <div className="epic-filter-controls">
+                    <Select
+                      allowClear
+                      aria-label="篩選部門"
+                      options={filterDepartmentOptions}
+                      optionFilterProp="label"
+                      placeholder="全部部門"
+                      showSearch
+                      value={departmentFilter}
+                      onChange={setDepartmentFilter}
+                    />
+                    <Select
+                      allowClear
+                      aria-label="篩選人員名稱"
+                      options={filterAgentOptions}
+                      optionFilterProp="label"
+                      placeholder="全部人員"
+                      showSearch
+                      value={agentFilter}
+                      onChange={setAgentFilter}
+                    />
+                    <label className="completed-project-toggle">
+                      <Switch
+                        aria-label="顯示完成度 100% 專案"
+                        checked={showCompletedProjects}
+                        onChange={setShowCompletedProjects}
+                      />
+                      <span>顯示完成度 100% 專案</span>
+                    </label>
+                  </div>
+                </div>
+
+                {activePlannerView === "schedule" ? (
+                  <section className="project-board" aria-label="Epic 與 Task 專案列表">
                   <div className="epic-list">
-                    {epics.map((epic) => {
+                    {visibleEpics.map((epic) => {
                       const isCollapsed = collapsedEpicIds.has(epic.id);
                       return (
                         <article
@@ -1679,7 +2319,17 @@ export default function Home() {
                               >
                                 <HolderOutlined />
                               </button>
+                              <Button
+                                aria-label={epic.starred ? `取消標記 ${epic.title}` : `星號標記 ${epic.title}`}
+                                aria-pressed={Boolean(epic.starred)}
+                                className={`epic-star-button ${epic.starred ? "epic-star-button-active" : ""}`}
+                                icon={epic.starred ? <StarFilled /> : <StarOutlined />}
+                                onClick={() => updateEpic(epic.id, { starred: !epic.starred })}
+                                size="small"
+                                type="text"
+                              />
                               <Tag color="blue">EPIC {epic.wbs}</Tag>
+                              <Tag color={epic.category === "機台" ? "geekblue" : "cyan"}>{epic.category}</Tag>
                               <Button type="link" className="epic-title-button" icon={<EditOutlined />} onClick={() => setEditingEpicId(epic.id)}>
                                 {epic.title}
                               </Button>
@@ -1691,6 +2341,13 @@ export default function Home() {
                             </div>
 
                             <div className="epic-fields">
+                              <Field label="標籤">
+                                <Select
+                                  options={epicCategorySelectOptions}
+                                  value={epic.category}
+                                  onChange={(value) => updateEpic(epic.id, { category: normalizeEpicCategory(value) })}
+                                />
+                              </Field>
                               <Field label="Type">
                                 <Select
                                   className="colored-select"
@@ -1969,7 +2626,12 @@ export default function Home() {
                       );
                     })}
                   </div>
-                </section>
+                  </section>
+                ) : activePlannerView === "manpower" ? (
+                  <ProjectManpowerView summaries={manpowerSummaries} />
+                ) : (
+                  <PersonnelScheduleView days={personnelDays} summaries={personnelScheduleSummaries} />
+                )}
               </>
             ) : (
               <section className="settings-page" aria-label="設定">
@@ -1985,10 +2647,10 @@ export default function Home() {
                     values={settings.departments}
                     onChange={(values) => updateSettingsList("departments", values)}
                   />
-                  <EditableOptionCard
-                    title="Agent設定"
+                  <AgentSettingsCard
+                    departments={settings.departments}
                     values={settings.agents}
-                    onChange={(values) => updateSettingsList("agents", values)}
+                    onChange={updateAgents}
                   />
                   <HolidaySettingsCard
                     values={settings.holidays}
@@ -2025,6 +2687,7 @@ export default function Home() {
             <div className="modal-header">
               <div>
                 <Tag color="blue">EPIC {editingEpic.wbs}</Tag>
+                <Tag color={editingEpic.category === "機台" ? "geekblue" : "cyan"}>{editingEpic.category}</Tag>
                 <Typography.Title level={3}>{editingEpic.title}</Typography.Title>
               </div>
               <Button danger icon={<DeleteOutlined />} onClick={() => deleteEpic(editingEpic.id)} aria-label={`刪除 ${editingEpic.title}`} />
@@ -2035,6 +2698,13 @@ export default function Home() {
                 <Input
                   value={editingEpic.title}
                   onChange={(event) => updateEpic(editingEpic.id, { title: event.target.value })}
+                />
+              </Field>
+              <Field label="標籤">
+                <Select
+                  options={epicCategorySelectOptions}
+                  value={editingEpic.category}
+                  onChange={(value) => updateEpic(editingEpic.id, { category: normalizeEpicCategory(value) })}
                 />
               </Field>
               <Field label="Type">
@@ -2188,7 +2858,7 @@ export default function Home() {
             <span>支援匯入範例格式、CSV、TSV 與 HTML XLS</span>
           </button>
           <input
-            accept=".xls,.xlsx,.csv,.tsv"
+            accept=".xls,.xlsx,.csv,.tsv,.html,.htm"
             className="import-file-input"
             ref={importInputRef}
             type="file"
@@ -2224,6 +2894,353 @@ export default function Home() {
   );
 }
 
+function PersonnelScheduleView({
+  days,
+  summaries,
+}: {
+  days: Date[];
+  summaries: PersonnelScheduleSummary[];
+}) {
+  const rangeStart = days[0]?.getTime() ?? 0;
+  const ganttWeeks: Date[][] = [];
+  for (let index = 0; index < days.length; index += 7) {
+    ganttWeeks.push(days.slice(index, index + 7));
+  }
+
+  function projectBarStyle(project: PersonnelProjectSummary) {
+    const itemStart = new Date(`${project.startDate}T00:00:00`);
+    const itemFinish = new Date(`${project.finishDate}T00:00:00`);
+    const rawOffset = Math.round((itemStart.getTime() - rangeStart) / DAY_MS);
+    const rawFinishOffset = Math.round((itemFinish.getTime() - rangeStart) / DAY_MS);
+    const columnStart = Math.min(days.length, Math.max(0, rawOffset)) + 1;
+    const columnEnd = Math.min(days.length, Math.max(columnStart, rawFinishOffset + 1));
+    const span = Math.max(1, columnEnd - columnStart + 1);
+    const progress = project.taskCount
+      ? Math.round((project.completedTaskCount / project.taskCount) * 100)
+      : 0;
+    return {
+      gridColumn: `${columnStart} / span ${span}`,
+      "--progress": `${progress}%`,
+    } as React.CSSProperties;
+  }
+
+  if (!summaries.length) {
+    return (
+      <section className="people-schedule-page" aria-label="人員時程列表">
+        <div className="people-schedule-empty">此標籤目前沒有已指派的人員 Task</div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="people-schedule-page" aria-label="人員時程列表">
+      {summaries.map((person) => (
+        <article className="people-schedule-card" key={person.key}>
+          <div className="people-schedule-details">
+            <div className="people-schedule-person">
+              <div>
+                <Typography.Title level={4}>{person.name}</Typography.Title>
+                <Space size={[4, 4]} wrap>
+                  {person.departments.map((department) => (
+                    <Tag key={`${person.key}-${department}`}>{department}</Tag>
+                  ))}
+                </Space>
+              </div>
+              <div className="people-schedule-person-stats">
+                <span>{person.projectCount} 個專案</span>
+                <span>{person.taskCount} 項 Tasks</span>
+              </div>
+            </div>
+            <div className="people-project-list">
+              {person.projects.map((project) => {
+                const progress = project.taskCount
+                  ? Math.round((project.completedTaskCount / project.taskCount) * 100)
+                  : 0;
+                return (
+                  <Popover
+                    content={
+                      <div className="manpower-task-popover">
+                        {project.tasks.map((task) => (
+                          <div className="manpower-task-popover-row" key={task.key}>
+                            <Tag color="blue">{task.wbs}</Tag>
+                            <div>
+                              <div className="manpower-task-popover-title">
+                                <strong>{task.title}</strong>
+                                <Tag color={getManpowerTaskStatusColor(task)}>{task.status}</Tag>
+                              </div>
+                              <small>
+                                {task.startDate} → {task.finishDate} · {task.workdays} 天
+                              </small>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    }
+                    key={project.key}
+                    mouseEnterDelay={0.12}
+                    mouseLeaveDelay={0.08}
+                    placement="topLeft"
+                    title={`${person.name}｜${project.title} 負責的 Tasks（完成 ${project.completedTaskCount}/${project.taskCount}）`}
+                    trigger={["hover", "focus"]}
+                  >
+                    <div
+                      aria-label={`${person.name}，${project.title}，${project.taskCount} 項 Tasks，完成度 ${progress}%，滑鼠移入查看負責 Tasks`}
+                      className="people-project-row"
+                      tabIndex={0}
+                    >
+                      <div className="people-project-title">
+                        <span>
+                          <Tag color="blue">EPIC {project.wbs}</Tag>
+                          <Tag color={project.category === "機台" ? "geekblue" : "cyan"}>{project.category}</Tag>
+                        </span>
+                        <strong>{project.title}</strong>
+                      </div>
+                      <div className="people-project-meta">
+                        <span>{project.startDate} → {project.finishDate}</span>
+                        <small>{project.taskCount} 項 Tasks · 完成 {progress}%</small>
+                      </div>
+                    </div>
+                  </Popover>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="people-schedule-gantt-panel">
+            <div
+              className="gantt-scroll people-schedule-gantt"
+              style={{ "--gantt-days": days.length } as React.CSSProperties}
+            >
+              <div className="gantt-week-header">
+                {ganttWeeks.map((week, index) => (
+                  <span key={week[0].toISOString()} style={{ gridColumn: `${index * 7 + 1} / span ${week.length}` }}>
+                    WK {index + 1}
+                  </span>
+                ))}
+              </div>
+              <div className="gantt-date-header">
+                {days.map((day) => (
+                  <span key={day.toISOString()}>{dayLabel(day)}</span>
+                ))}
+              </div>
+              <div className="gantt-weekday-header">
+                {days.map((day) => (
+                  <span key={day.toISOString()}>{weekday(day)}</span>
+                ))}
+              </div>
+              <div className="people-schedule-gantt-rows">
+                {person.projects.map((project) => (
+                  <div className="gantt-board-row" key={`${project.key}-gantt`}>
+                    <span
+                      className="gantt-board-bar"
+                      style={projectBarStyle(project)}
+                      title={`${person.name}｜${project.title}｜${project.startDate} - ${project.finishDate}`}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </article>
+      ))}
+    </section>
+  );
+}
+
+function ProjectManpowerView({ summaries }: { summaries: ProjectManpowerSummary[] }) {
+  const columns: TableProps<ProjectManpowerSummary>["columns"] = [
+    {
+      title: "專案",
+      dataIndex: "title",
+      key: "title",
+      width: 170,
+      render: (_, item) => (
+        <div className="manpower-project-cell">
+          <div>
+            <Tag color="blue">EPIC {item.wbs}</Tag>
+            <Tag color={item.category === "機台" ? "geekblue" : "cyan"}>{item.category}</Tag>
+          </div>
+          <strong>{item.title}</strong>
+        </div>
+      ),
+    },
+    {
+      title: "Task 期間",
+      key: "period",
+      width: 170,
+      render: (_, item) =>
+        item.startDate && item.finishDate ? (
+          <div className="manpower-period">
+            <span>{item.startDate}</span>
+            <span>→</span>
+            <span>{item.finishDate}</span>
+          </div>
+        ) : (
+          <Typography.Text type="secondary">尚無 Task</Typography.Text>
+        ),
+    },
+    {
+      title: "投入部門",
+      key: "departments",
+      width: 130,
+      render: (_, item) => (
+        <Space size={[4, 6]} wrap>
+          {item.departments.map((department) => (
+            <Tag key={department.key}>{department.name}</Tag>
+          ))}
+        </Space>
+      ),
+    },
+    {
+      title: "人力",
+      dataIndex: "peopleCount",
+      key: "peopleCount",
+      align: "right",
+      width: 65,
+      render: (value: number) => `${value} 人`,
+    },
+    {
+      title: "Tasks",
+      dataIndex: "taskCount",
+      key: "taskCount",
+      align: "right",
+      width: 65,
+      render: (value: number) => `${value} 項`,
+    },
+    {
+      title: "投入工作天",
+      dataIndex: "workdays",
+      key: "workdays",
+      align: "right",
+      width: 105,
+      render: (value: number) => <strong className="manpower-workdays">{value.toLocaleString()} 天</strong>,
+    },
+  ];
+
+  return (
+    <section className="manpower-page" aria-label="專案人力列表">
+      <Table<ProjectManpowerSummary>
+        className="manpower-table"
+        columns={columns}
+        dataSource={summaries}
+        locale={{ emptyText: "此標籤目前沒有專案" }}
+        pagination={{ defaultPageSize: 30, pageSizeOptions: [30, 50, 100], showSizeChanger: true }}
+        expandable={{
+          rowExpandable: (item) => item.departments.length > 0,
+          expandedRowRender: (item) => <ProjectManpowerDetails departments={item.departments} />,
+        }}
+        scroll={{ x: 760 }}
+        tableLayout="fixed"
+      />
+    </section>
+  );
+}
+
+function ProjectManpowerDetails({ departments }: { departments: ManpowerDepartmentSummary[] }) {
+  const columns: TableProps<ManpowerDepartmentSummary>["columns"] = [
+    {
+      title: "部門",
+      dataIndex: "name",
+      key: "name",
+      width: 160,
+      render: (value: string) => <strong>{value}</strong>,
+    },
+    {
+      title: "投入人力與工作天",
+      key: "agents",
+      render: (_, department) => (
+        <div className="manpower-agent-list">
+          {department.agents.map((agent) => {
+            const completionRate = agent.taskCount
+              ? Math.round((agent.completedTaskCount / agent.taskCount) * 100)
+              : 0;
+            return (
+              <Popover
+              content={
+                <div className="manpower-task-popover">
+                  {agent.tasks.map((task) => (
+                    <div className="manpower-task-popover-row" key={task.key}>
+                      <Tag color="blue">{task.wbs}</Tag>
+                      <div>
+                        <div className="manpower-task-popover-title">
+                          <strong>{task.title}</strong>
+                          <Tag color={getManpowerTaskStatusColor(task)}>{task.status}</Tag>
+                        </div>
+                        <small>
+                          {task.startDate} → {task.finishDate} · {task.workdays} 天
+                        </small>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              }
+              key={agent.key}
+              mouseEnterDelay={0.12}
+              mouseLeaveDelay={0.08}
+              placement="topLeft"
+              title={`${agent.name} 負責的 Tasks（完成 ${agent.completedTaskCount}/${agent.taskCount}）`}
+              trigger={["hover", "focus"]}
+            >
+              <span
+                aria-label={`${agent.name}，${agent.workdays} 工作天，Task 完成度 ${completionRate}%，滑鼠移入查看負責 Tasks`}
+                className="manpower-agent"
+                tabIndex={0}
+              >
+                <strong>{agent.name}</strong>
+                <small>{agent.workdays.toLocaleString()} 天</small>
+                <span
+                  aria-label={`已完成 ${agent.completedTaskCount} 項，共 ${agent.taskCount} 項，完成度 ${completionRate}%`}
+                  className="manpower-agent-progress"
+                  title={`${agent.completedTaskCount}/${agent.taskCount} = ${completionRate}%`}
+                >
+                  <Progress percent={completionRate} showInfo={false} size="small" />
+                  <small>{completionRate}%</small>
+                </span>
+              </span>
+            </Popover>
+            );
+          })}
+        </div>
+      ),
+    },
+    {
+      title: "人力",
+      key: "peopleCount",
+      align: "right",
+      width: 90,
+      render: (_, department) => `${department.agents.length} 人`,
+    },
+    {
+      title: "Tasks",
+      dataIndex: "taskCount",
+      key: "taskCount",
+      align: "right",
+      width: 100,
+      render: (value: number) => `${value} 項`,
+    },
+    {
+      title: "工作天",
+      dataIndex: "workdays",
+      key: "workdays",
+      align: "right",
+      width: 110,
+      render: (value: number) => `${value.toLocaleString()} 天`,
+    },
+  ];
+
+  return (
+    <Table<ManpowerDepartmentSummary>
+      className="manpower-detail-table"
+      columns={columns}
+      dataSource={departments}
+      pagination={false}
+      rowKey="key"
+      size="small"
+      tableLayout="fixed"
+    />
+  );
+}
+
 function EditableOptionCard({
   title,
   values,
@@ -2246,7 +3263,7 @@ function EditableOptionCard({
       className="settings-card"
       title={title}
       extra={
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => onChange([...values, "新增項目"])}>
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => onChange([...values, ""])}>
           新增
         </Button>
       }
@@ -2291,7 +3308,7 @@ function ColoredOptionCard({
           onClick={() =>
             onChange([
               ...values,
-              { id: `option-${Date.now()}`, label: "新增項目", color: "#0d5bff" },
+              { id: `option-${Date.now()}`, label: "", color: "#0d5bff" },
             ])
           }
         >
@@ -2314,6 +3331,67 @@ function ColoredOptionCard({
             />
             <Input value={value.label} onChange={(event) => updateValue(index, { label: event.target.value })} />
             <Button danger icon={<DeleteOutlined />} onClick={() => deleteValue(index)} aria-label={`刪除 ${value.label}`} />
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function AgentSettingsCard({
+  values,
+  departments,
+  onChange,
+}: {
+  values: AgentOption[];
+  departments: string[];
+  onChange: (values: AgentOption[]) => void;
+}) {
+  function updateValue(index: number, value: Partial<AgentOption>) {
+    onChange(values.map((item, itemIndex) => (itemIndex === index ? { ...item, ...value } : item)));
+  }
+
+  function deleteValue(index: number) {
+    onChange(values.filter((_, itemIndex) => itemIndex !== index));
+  }
+
+  const departmentOptions = toSelectOptions(departments);
+
+  return (
+    <Card
+      className="settings-card"
+      title="Agent設定"
+      extra={
+        <Button
+          type="primary"
+          icon={<PlusOutlined />}
+          onClick={() =>
+            onChange([
+              ...values,
+              { id: `agent-${Date.now()}`, department: "", name: "" },
+            ])
+          }
+        >
+          新增
+        </Button>
+      }
+    >
+      <div className="settings-list">
+        {values.map((value, index) => (
+          <div className="settings-row agent-settings-row" key={value.id || `agent-${index}`}>
+            <Select
+              aria-label={`${value.name || "Agent"} 部門`}
+              className="agent-department-select"
+              options={departmentOptions}
+              value={value.department || undefined}
+              onChange={(department) => updateValue(index, { department })}
+            />
+            <Input
+              aria-label="Agent 名稱"
+              value={value.name}
+              onChange={(event) => updateValue(index, { name: event.target.value })}
+            />
+            <Button danger icon={<DeleteOutlined />} onClick={() => deleteValue(index)} aria-label={`刪除 ${value.name}`} />
           </div>
         ))}
       </div>
@@ -2354,7 +3432,11 @@ function HolidaySettingsCard({
             <DatePicker.RangePicker
               allowClear={false}
               inputReadOnly
-              value={[dayjs(value.startDate), dayjs(value.endDate)]}
+              value={
+                value.startDate && value.endDate
+                  ? [dayjs(value.startDate), dayjs(value.endDate)]
+                  : null
+              }
               onChange={(dates) => {
                 if (!dates?.[0] || !dates?.[1]) {
                   return;
