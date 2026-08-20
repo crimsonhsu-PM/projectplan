@@ -133,6 +133,39 @@ select {
   font-weight: 700;
 }
 
+.sync-status {
+  align-items: center;
+  background: #f7f9fd;
+  border: 1px solid #e6ebf3;
+  border-radius: 999px;
+  color: #667085;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 700;
+  min-height: 28px;
+  padding: 0 12px;
+}
+
+.sync-status-saved {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #15803d;
+}
+
+.sync-status-loading,
+.sync-status-saving {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #0d5bff;
+}
+
+.sync-status-error,
+.sync-status-offline {
+  background: #fff7ed;
+  border-color: #fed7aa;
+  color: #c2410c;
+}
+
 .project-header {
   align-items: end;
   background: var(--white);

@@ -118,6 +118,14 @@ type ImportPreview = {
   errors: string[];
 };
 
+type StoredProjectData = {
+  project?: ProjectMeta;
+  epics?: Epic[];
+  settings?: Partial<AppSettings>;
+};
+
+type SyncStatus = "loading" | "saved" | "saving" | "offline" | "error";
+
 const STORAGE_KEY = "rsg-project-plan-v2";
 const VISIBLE_TASK_COLUMNS_KEY = "rsg-project-plan-visible-task-columns-v1";
 const EPIC_MAIN_WIDTH_KEY = "rsg-project-plan-epic-main-width-v1";
@@ -824,17 +832,21 @@ export default function Home() {
   const [importFileName, setImportFileName] = useState("");
   const [isImportDragging, setIsImportDragging] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>("loading");
   const importInputRef = useRef<HTMLInputElement | null>(null);
   const syncingGanttScrollRef = useRef(false);
 
   useEffect(() => {
+    function applyStoredData(data: StoredProjectData) {
+      setProject(data.project ?? defaultProject);
+      setEpics((data.epics ?? sampleEpics).map(normalizeEpic));
+      setSettings(normalizeSettings(data.settings));
+    }
+
     const saved = window.localStorage.getItem(STORAGE_KEY);
     if (saved) {
       try {
-        const parsed = JSON.parse(saved) as { project?: ProjectMeta; epics?: Epic[]; settings?: Partial<AppSettings> };
-        setProject(parsed.project ?? defaultProject);
-        setEpics((parsed.epics ?? sampleEpics).map(normalizeEpic));
-        setSettings(normalizeSettings(parsed.settings));
+        applyStoredData(JSON.parse(saved) as StoredProjectData);
       } catch {
         setEpics(sampleEpics);
         setSettings(defaultSettings);
@@ -858,14 +870,72 @@ export default function Home() {
     if (Number.isFinite(savedEpicMainWidth)) {
       setEpicMainWidth(Math.min(MAX_EPIC_MAIN_WIDTH, Math.max(MIN_EPIC_MAIN_WIDTH, savedEpicMainWidth)));
     }
-    setHasLoaded(true);
+
+    let isMounted = true;
+    fetch("/api/project-data", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error("load_failed");
+        }
+        return (await response.json()) as { data: StoredProjectData | null };
+      })
+      .then(({ data }) => {
+        if (!isMounted) {
+          return;
+        }
+        if (data) {
+          applyStoredData(data);
+        }
+        setSyncStatus("saved");
+      })
+      .catch(() => {
+        if (isMounted) {
+          setSyncStatus("offline");
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setHasLoaded(true);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
     if (hasLoaded) {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ project, epics, settings }));
+      const payload = { project, epics, settings };
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
       window.localStorage.setItem(VISIBLE_TASK_COLUMNS_KEY, JSON.stringify(Array.from(visibleTaskColumns)));
       window.localStorage.setItem(EPIC_MAIN_WIDTH_KEY, String(epicMainWidth));
+      setSyncStatus("saving");
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => {
+        fetch("/api/project-data", {
+          body: JSON.stringify(payload),
+          headers: { "Content-Type": "application/json" },
+          method: "PUT",
+          signal: controller.signal,
+        })
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error("save_failed");
+            }
+            setSyncStatus("saved");
+          })
+          .catch((error) => {
+            if (error.name !== "AbortError") {
+              setSyncStatus("error");
+            }
+          });
+      }, 700);
+
+      return () => {
+        controller.abort();
+        window.clearTimeout(timer);
+      };
     }
   }, [epicMainWidth, epics, hasLoaded, project, settings, visibleTaskColumns]);
 
@@ -1506,6 +1576,17 @@ export default function Home() {
           <Layout.Content className="backend-content">
             <header className="topbar topbar-end">
               <Space size={18}>
+                <Typography.Text className={`sync-status sync-status-${syncStatus}`}>
+                  {syncStatus === "loading"
+                    ? "資料載入中"
+                    : syncStatus === "saving"
+                      ? "儲存中"
+                      : syncStatus === "saved"
+                        ? "已儲存"
+                        : syncStatus === "offline"
+                          ? "使用本機備援"
+                          : "儲存失敗"}
+                </Typography.Text>
                 <BellOutlined className="topbar-icon" />
                 <Avatar size={38} icon={<UserOutlined />} />
                 <Typography.Text className="topbar-user">瑪琳·索索</Typography.Text>
