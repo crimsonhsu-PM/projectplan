@@ -97,6 +97,14 @@ type ImportMode = "append" | "replace";
 
 type SyncStatus = "loading" | "saved" | "saving" | "offline" | "error";
 type PlannerView = "schedule" | "manpower" | "people";
+
+const syncStatusLabels: Record<SyncStatus, string> = {
+  loading: "資料載入中",
+  saving: "儲存中",
+  saved: "已儲存",
+  offline: "使用本機備援",
+  error: "儲存失敗",
+};
 const STORAGE_KEY = "rsg-project-plan-v2";
 const VISIBLE_TASK_COLUMNS_KEY = "rsg-project-plan-visible-task-columns-v1";
 const EPIC_MAIN_WIDTH_KEY = "rsg-project-plan-epic-main-width-v1";
@@ -1293,18 +1301,31 @@ export default function Home() {
               ]}
             />
           </Layout.Sider>
+          <header className="mobile-app-header">
+            <div className="mobile-app-bar">
+              <div className="mobile-brand">
+                <ProjectOutlined />
+                <span>Project Demo</span>
+              </div>
+              <Typography.Text className={`sync-status sync-status-${syncStatus}`}>
+                {syncStatusLabels[syncStatus]}
+              </Typography.Text>
+            </div>
+            <Menu
+              className="mobile-primary-nav"
+              mode="horizontal"
+              selectedKeys={[activePage]}
+              onClick={({ key }) => setActivePage(key as "planner" | "settings")}
+              items={[
+                { key: "planner", icon: <TableOutlined />, label: "專案計畫" },
+                { key: "settings", icon: <SettingOutlined />, label: "設定" },
+              ]}
+            />
+          </header>
           <Layout.Content className="backend-content">
             <header className="topbar topbar-end">
               <Typography.Text className={`sync-status sync-status-${syncStatus}`}>
-                {syncStatus === "loading"
-                  ? "資料載入中"
-                  : syncStatus === "saving"
-                    ? "儲存中"
-                    : syncStatus === "saved"
-                      ? "已儲存"
-                      : syncStatus === "offline"
-                        ? "使用本機備援"
-                        : "儲存失敗"}
+                {syncStatusLabels[syncStatus]}
               </Typography.Text>
             </header>
             {activePage === "planner" ? (
@@ -1638,7 +1659,7 @@ export default function Home() {
                                 <Space size={8}>
                                   <Dropdown
                                     trigger={["click"]}
-                                    dropdownRender={() => (
+                                    popupRender={() => (
                                       <div className="task-column-dropdown">
                                         <strong>顯示欄位</strong>
                                         {taskColumnDefinitions.map((column) => (

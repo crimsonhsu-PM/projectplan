@@ -25,6 +25,7 @@ html,
 body {
   margin: 0;
   min-height: 100%;
+  overflow-x: hidden;
 }
 
 body {
@@ -110,7 +111,12 @@ select {
 
 .backend-content {
   min-width: 0;
+  overflow-x: clip;
   padding: 0 42px 42px;
+}
+
+.mobile-app-header {
+  display: none;
 }
 
 .topbar {
@@ -121,9 +127,8 @@ select {
   height: 92px;
   justify-content: space-between;
   margin: 0 -42px 38px;
-  min-width: 1450px;
   padding: 0 42px;
-  width: max(100%, 1450px);
+  width: auto;
 }
 
 .topbar-end {
@@ -188,9 +193,9 @@ select {
   gap: 18px;
   grid-template-columns: minmax(280px, 1fr) 190px 132px 132px 132px;
   margin: 0 0 26px;
-  min-width: 1450px;
+  min-width: 0;
   padding: 22px;
-  width: max(100%, 1450px);
+  width: 100%;
 }
 
 .project-title span,
@@ -231,9 +236,9 @@ select {
   box-shadow: var(--shadow);
   box-sizing: border-box;
   margin: 0 0 20px;
-  min-width: 1450px;
+  min-width: 0;
   padding: 0 22px;
-  width: max(100%, 1450px);
+  width: 100%;
 }
 
 .project-view-tabs .ant-tabs-nav {
@@ -256,9 +261,9 @@ select {
   gap: 24px;
   justify-content: flex-start;
   margin: 0 0 26px;
-  min-width: 1450px;
+  min-width: 0;
   padding: 0 22px;
-  width: max(100%, 1450px);
+  width: 100%;
 }
 
 .epic-category-tabs {
@@ -346,9 +351,9 @@ select {
   display: flex;
   justify-content: space-between;
   margin: 0 0 26px;
-  min-width: 1450px;
+  min-width: 0;
   padding: 22px 26px;
-  width: max(100%, 1450px);
+  width: 100%;
 }
 
 .manpower-header .ant-typography {
@@ -390,8 +395,8 @@ select {
 .people-schedule-page {
   display: grid;
   gap: 18px;
-  min-width: 1450px;
-  width: max(100%, 1450px);
+  min-width: 0;
+  width: 100%;
 }
 
 .people-schedule-card {
@@ -517,9 +522,9 @@ select {
   box-shadow: var(--shadow);
   box-sizing: border-box;
   margin: 0;
-  min-width: 1450px;
+  min-width: 0;
   overflow: hidden;
-  width: max(100%, 1450px);
+  width: 100%;
 }
 
 .manpower-table .ant-table-thead > tr > th {
@@ -946,7 +951,7 @@ select {
     "toggle main resizer gantt"
     ". tasks resizer task-gantt";
   grid-template-columns: 46px var(--epic-main-width, 760px) 12px minmax(520px, 1fr);
-  min-width: 1450px;
+  min-width: 0;
   overflow-x: auto;
   padding: 22px;
   position: relative;
@@ -1765,29 +1770,91 @@ select {
   }
 
   .backend-sider {
-    height: auto;
-    position: static;
-    width: 100% !important;
-    max-width: none !important;
-    min-width: 0 !important;
+    display: none;
+  }
+
+  .mobile-app-header {
+    background: #ffffff;
+    box-shadow: 0 6px 22px rgba(29, 36, 58, 0.08);
+    display: block;
+    position: sticky;
+    top: 0;
+    z-index: 40;
+  }
+
+  .mobile-app-bar {
+    align-items: center;
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+    min-height: 58px;
+    padding: 10px 14px 8px;
+  }
+
+  .mobile-brand {
+    align-items: center;
+    color: #172033;
+    display: flex;
+    font-size: 16px;
+    font-weight: 800;
+    gap: 9px;
+    min-width: 0;
+  }
+
+  .mobile-brand .anticon {
+    color: #0d5bff;
+    font-size: 21px;
+  }
+
+  .mobile-primary-nav.ant-menu-horizontal {
+    border-bottom: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    line-height: 42px;
+    padding: 0 8px;
+  }
+
+  .mobile-primary-nav.ant-menu-horizontal > .ant-menu-item {
+    align-items: center;
+    display: flex;
+    justify-content: center;
+    margin: 0;
+    min-width: 0;
+    padding-inline: 10px;
   }
 
   .backend-content {
-    padding: 10px;
+    overflow-x: hidden;
+    padding: 14px 14px 28px;
+    width: 100% !important;
   }
 
   .topbar {
-    height: auto;
-    margin: 0 -10px 16px;
-    min-width: 0;
-    padding: 14px 10px;
-    width: auto;
+    display: none;
   }
 
   .project-header {
-    grid-template-columns: 1fr;
+    gap: 12px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-bottom: 14px;
     min-width: 0;
+    padding: 16px;
     width: auto;
+  }
+
+  .project-title,
+  .project-header > label {
+    grid-column: 1 / -1;
+  }
+
+  .project-name-input {
+    font-size: 22px;
+  }
+
+  .project-header > .ant-btn {
+    justify-self: stretch;
+    min-width: 0;
+    padding-inline: 6px;
   }
 
   .project-view-tabs,
@@ -1796,67 +1863,105 @@ select {
     width: auto;
   }
 
+  .project-view-tabs {
+    margin-bottom: 14px;
+    overflow-x: auto;
+    padding: 0 12px;
+  }
+
+  .project-view-tabs .ant-tabs-nav-wrap {
+    overflow: visible;
+  }
+
+  .project-view-tabs .ant-tabs-nav-list {
+    min-width: max-content;
+  }
+
   .epic-filter-bar {
     align-items: stretch;
     flex-direction: column;
     gap: 10px;
+    margin-bottom: 14px;
     padding: 0 12px 12px;
   }
 
+  .epic-category-tabs {
+    overflow-x: auto;
+  }
+
   .epic-filter-controls {
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
   }
 
   .epic-filter-controls .ant-select {
-    flex: 1 1 180px;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .completed-project-toggle {
+    grid-column: 1 / -1;
+    min-height: 34px;
   }
 
   .manpower-header {
     align-items: flex-start;
     flex-direction: column;
     gap: 16px;
+    margin-bottom: 14px;
     min-width: 0;
+    padding: 18px;
     width: auto;
+  }
+
+  .manpower-header-summary {
+    flex-wrap: wrap;
   }
 
   .people-header-actions {
     align-items: flex-start;
     flex-direction: column;
+    width: 100%;
+  }
+
+  .people-start-date,
+  .people-start-date .ant-picker {
+    width: 100%;
   }
 
   .manpower-page {
-    min-width: 0;
-    width: auto;
-  }
-
-  .people-schedule-page {
     min-width: 0;
     overflow-x: auto;
     width: auto;
   }
 
+  .people-schedule-page {
+    min-width: 0;
+    overflow: visible;
+    width: auto;
+  }
+
   .people-schedule-card {
-    grid-template-columns: 420px 700px;
-    min-width: 1120px;
+    display: block;
+    min-width: 0;
   }
 
-  .project-title {
-    grid-column: 1 / -1;
-  }
-
-  .project-header > .ant-btn {
-    justify-self: start;
-    min-width: 132px;
+  .people-schedule-details {
+    border-bottom: 1px solid #e7edf7;
+    border-right: 0;
   }
 
   .epic-card {
     grid-template-areas:
-      "toggle"
-      "gantt"
-      "main"
-      "tasks"
-      "task-gantt";
-    grid-template-columns: 1fr;
+      "toggle main"
+      "gantt gantt"
+      "tasks tasks"
+      "task-gantt task-gantt";
+    grid-template-columns: 36px minmax(0, 1fr);
+    gap: 12px;
+    overflow: hidden;
+    padding: 14px;
   }
 
   .epic-pane-resizer {
@@ -1864,31 +1969,89 @@ select {
   }
 
   .epic-toggle-column {
-    border-right: 0;
-    border-bottom: 1px solid #edf0f7;
+    border-bottom: 0;
+    border-right: 1px solid #edf0f7;
     justify-content: flex-start;
-    padding-bottom: 10px;
+    padding: 0 6px 0 0;
+  }
+
+  .epic-title-row {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .epic-title-button {
+    flex: 1 1 calc(100% - 130px);
+    justify-content: flex-start;
+    max-width: 100%;
+    text-align: left;
+    white-space: normal;
+  }
+
+  .epic-title-button span:last-child {
+    line-height: 1.35;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  .epic-title-progress {
+    align-items: center;
+    flex: 1 1 100%;
+    grid-template-columns: auto minmax(0, 1fr);
+    margin-left: 0;
+  }
+
+  .epic-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 12px;
+  }
+
+  .epic-fields label:last-child {
+    grid-column: 1 / -1;
   }
 
   .task-list {
-    grid-column: auto;
+    grid-column: 1 / -1;
+    max-width: 100%;
+    overscroll-behavior-inline: contain;
+    touch-action: pan-x pan-y;
   }
 
   .epic-gantt-panel {
-    grid-column: auto;
+    grid-column: 1 / -1;
     grid-row: auto;
+    max-width: 100%;
+    overscroll-behavior-inline: contain;
+    touch-action: pan-x pan-y;
   }
 
   .task-gantt-panel {
-    grid-column: auto;
+    grid-column: 1 / -1;
     grid-row: auto;
+    max-width: 100%;
+    overscroll-behavior-inline: contain;
+    touch-action: pan-x pan-y;
   }
 
-  .epic-fields,
   .task-item,
-  .task-columns-header,
+  .task-columns-header {
+    min-width: 900px;
+  }
+
+  .task-list-header {
+    min-width: 0;
+    position: sticky;
+    left: 0;
+  }
+
   .holiday-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 44px;
+  }
+
+  .holiday-row .ant-picker {
+    grid-column: 1 / -1;
   }
 
   .sheet {
@@ -1899,5 +2062,140 @@ select {
   .task-card,
   .settings-grid {
     grid-template-columns: 1fr;
+  }
+
+  .settings-page {
+    max-width: none;
+  }
+
+  .settings-header {
+    margin-bottom: 14px;
+    padding: 18px;
+  }
+
+  .settings-row,
+  .agent-settings-row,
+  .colored-settings-row {
+    flex-wrap: wrap;
+  }
+
+  .agent-settings-row .agent-department-select {
+    flex: 1 1 132px;
+  }
+
+  .epic-modal .ant-modal {
+    max-width: calc(100vw - 20px);
+  }
+
+  .epic-modal .ant-modal-body {
+    max-height: calc(100vh - 120px);
+    overflow: auto;
+  }
+}
+
+@media (max-width: 560px) {
+  .backend-content {
+    padding-inline: 10px;
+  }
+
+  .mobile-app-bar {
+    padding-inline: 12px;
+  }
+
+  .sync-status {
+    font-size: 11px;
+    padding-inline: 9px;
+  }
+
+  .project-header {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding: 14px;
+  }
+
+  .project-header > .ant-btn {
+    font-size: 13px;
+  }
+
+  .project-view-tabs .ant-tabs-tab {
+    font-size: 14px;
+    padding-block: 14px;
+  }
+
+  .epic-filter-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .completed-project-toggle {
+    grid-column: auto;
+  }
+
+  .epic-card {
+    border-radius: 8px;
+    grid-template-columns: 30px minmax(0, 1fr);
+    padding: 12px 10px;
+  }
+
+  .epic-toggle-column {
+    padding-right: 2px;
+  }
+
+  .epic-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .epic-fields label:last-child {
+    grid-column: auto;
+  }
+
+  .epic-title-button {
+    flex-basis: calc(100% - 92px);
+  }
+
+  .task-list-header {
+    align-items: flex-start;
+    height: auto;
+    min-height: 36px;
+  }
+
+  .task-list-header .ant-space {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .people-schedule-person,
+  .people-project-row {
+    align-items: flex-start;
+    gap: 10px;
+    grid-template-columns: 1fr;
+    height: auto;
+    min-height: 74px;
+    padding: 14px;
+  }
+
+  .people-schedule-person {
+    display: grid;
+  }
+
+  .people-schedule-person-stats,
+  .people-project-meta {
+    text-align: left;
+  }
+
+  .manpower-header-summary span {
+    font-size: 12px;
+    padding: 7px 10px;
+  }
+
+  .settings-card .ant-card-body {
+    padding: 14px;
+  }
+
+  .import-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .import-mode-select {
+    width: 100%;
   }
 }
