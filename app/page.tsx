@@ -1376,13 +1376,13 @@ export default function Home() {
             open={isMobileNavOpen}
             placement="left"
             rootClassName="mobile-nav-drawer-root"
+            size={288}
             title={
               <div className="mobile-drawer-brand">
                 <ProjectOutlined />
                 <span>Project Demo</span>
               </div>
             }
-            width={288}
           >
             <nav className="mobile-drawer-nav" aria-label="主要導覽">
               <button
