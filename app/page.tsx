@@ -8,6 +8,7 @@ import {
   ColorPicker,
   ConfigProvider,
   DatePicker,
+  Drawer,
   Dropdown,
   Input,
   Layout,
@@ -27,10 +28,13 @@ import type { TableProps } from "antd";
 import {
   CalendarOutlined,
   DeleteOutlined,
+  DesktopOutlined,
   DownloadOutlined,
   DownOutlined,
   EditOutlined,
   HolderOutlined,
+  MenuOutlined,
+  MobileOutlined,
   PlusOutlined,
   ProjectOutlined,
   RightOutlined,
@@ -93,6 +97,8 @@ type PlannerTableRow = {
   project?: string;
 };
 
+type LayoutMode = "auto" | "desktop" | "mobile";
+
 type ImportMode = "append" | "replace";
 
 type SyncStatus = "loading" | "saved" | "saving" | "offline" | "error";
@@ -107,6 +113,7 @@ const syncStatusLabels: Record<SyncStatus, string> = {
 };
 const STORAGE_KEY = "rsg-project-plan-v2";
 const VISIBLE_TASK_COLUMNS_KEY = "rsg-project-plan-visible-task-columns-v1";
+const LAYOUT_MODE_KEY = "rsg-project-plan-layout-mode-v1";
 const EPIC_MAIN_WIDTH_KEY = "rsg-project-plan-epic-main-width-v1";
 const ALL_FILTER_VALUE = "__all__";
 const MIN_EPIC_MAIN_WIDTH = 760;
@@ -431,6 +438,9 @@ export default function Home() {
   const [epics, setEpics] = useState<Epic[]>(sampleEpics);
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
   const [activePage, setActivePage] = useState<"planner" | "settings">("planner");
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>("auto");
+  const [isNarrowViewport, setIsNarrowViewport] = useState(false);
   const [activePlannerView, setActivePlannerView] = useState<PlannerView>("schedule");
   const [activeEpicCategory, setActiveEpicCategory] = useState<EpicCategory>("機台");
   const [visiblePersonnelCategories, setVisiblePersonnelCategories] = useState<EpicCategory[]>(
@@ -460,6 +470,20 @@ export default function Home() {
 
   useEffect(() => {
     setIsHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 900px)");
+    const updateViewport = () => setIsNarrowViewport(mediaQuery.matches);
+    const savedLayoutMode = window.localStorage.getItem(LAYOUT_MODE_KEY);
+
+    updateViewport();
+    if (savedLayoutMode === "desktop" || savedLayoutMode === "mobile") {
+      setLayoutMode(savedLayoutMode);
+    }
+    mediaQuery.addEventListener("change", updateViewport);
+
+    return () => mediaQuery.removeEventListener("change", updateViewport);
   }, []);
 
   useEffect(() => {
@@ -1266,6 +1290,17 @@ export default function Home() {
     );
   }
 
+  const resolvedLayout = layoutMode === "auto"
+    ? (isNarrowViewport ? "mobile" : "desktop")
+    : layoutMode;
+
+  function toggleLayoutMode() {
+    const nextLayoutMode = resolvedLayout === "mobile" ? "desktop" : "mobile";
+    setLayoutMode(nextLayoutMode);
+    setIsMobileNavOpen(false);
+    window.localStorage.setItem(LAYOUT_MODE_KEY, nextLayoutMode);
+  }
+
   return (
     <ConfigProvider
       theme={{
@@ -1284,6 +1319,7 @@ export default function Home() {
         },
       }}
     >
+      <div className={`layout-viewport layout-${layoutMode}`}>
       <main className="backend-shell">
         <Layout className="backend-layout">
           <Layout.Sider className="backend-sider" width={216}>
@@ -1300,28 +1336,83 @@ export default function Home() {
                 { key: "settings", icon: <SettingOutlined />, label: "設定" },
               ]}
             />
+            <div className="desktop-layout-toggle">
+              <Button block icon={<MobileOutlined />} onClick={toggleLayoutMode}>
+                切換手機版
+              </Button>
+            </div>
           </Layout.Sider>
           <header className="mobile-app-header">
             <div className="mobile-app-bar">
               <div className="mobile-brand">
+                <Button
+                  aria-label="開啟主選單"
+                  className="mobile-menu-button"
+                  icon={<MenuOutlined />}
+                  onClick={() => setIsMobileNavOpen(true)}
+                  type="text"
+                />
                 <ProjectOutlined />
                 <span>Project Demo</span>
               </div>
-              <Typography.Text className={`sync-status sync-status-${syncStatus}`}>
-                {syncStatusLabels[syncStatus]}
-              </Typography.Text>
+              <div className="mobile-app-actions">
+                <Typography.Text className={`sync-status sync-status-${syncStatus}`}>
+                  {syncStatusLabels[syncStatus]}
+                </Typography.Text>
+                <Button
+                  aria-label="切換桌機版"
+                  className="mobile-layout-toggle"
+                  icon={<DesktopOutlined />}
+                  onClick={toggleLayoutMode}
+                  title="切換桌機版"
+                  type="text"
+                />
+              </div>
             </div>
-            <Menu
-              className="mobile-primary-nav"
-              mode="horizontal"
-              selectedKeys={[activePage]}
-              onClick={({ key }) => setActivePage(key as "planner" | "settings")}
-              items={[
-                { key: "planner", icon: <TableOutlined />, label: "專案計畫" },
-                { key: "settings", icon: <SettingOutlined />, label: "設定" },
-              ]}
-            />
           </header>
+          <Drawer
+            className="mobile-nav-drawer"
+            onClose={() => setIsMobileNavOpen(false)}
+            open={isMobileNavOpen}
+            placement="left"
+            rootClassName="mobile-nav-drawer-root"
+            title={
+              <div className="mobile-drawer-brand">
+                <ProjectOutlined />
+                <span>Project Demo</span>
+              </div>
+            }
+            width={288}
+          >
+            <nav className="mobile-drawer-nav" aria-label="主要導覽">
+              <button
+                className={`mobile-drawer-nav-item ${activePage === "planner" ? "is-active" : ""}`}
+                type="button"
+                aria-current={activePage === "planner" ? "page" : undefined}
+                onClick={() => {
+                  setActivePage("planner");
+                  setIsMobileNavOpen(false);
+                }}
+              >
+                <TableOutlined />
+                <span>專案計畫</span>
+                <RightOutlined className="mobile-drawer-nav-arrow" />
+              </button>
+              <button
+                className={`mobile-drawer-nav-item ${activePage === "settings" ? "is-active" : ""}`}
+                type="button"
+                aria-current={activePage === "settings" ? "page" : undefined}
+                onClick={() => {
+                  setActivePage("settings");
+                  setIsMobileNavOpen(false);
+                }}
+              >
+                <SettingOutlined />
+                <span>設定</span>
+                <RightOutlined className="mobile-drawer-nav-arrow" />
+              </button>
+            </nav>
+          </Drawer>
           <Layout.Content className="backend-content">
             <header className="topbar topbar-end">
               <Typography.Text className={`sync-status sync-status-${syncStatus}`}>
@@ -2119,6 +2210,7 @@ export default function Home() {
         </div>
       </Modal>
       </main>
+      </div>
     </ConfigProvider>
   );
 }

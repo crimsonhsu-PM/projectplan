@@ -25,7 +25,14 @@ html,
 body {
   margin: 0;
   min-height: 100%;
+}
+
+html {
   overflow-x: hidden;
+}
+
+body {
+  overflow-x: auto;
 }
 
 body {
@@ -55,6 +62,22 @@ select {
   min-height: 100vh;
 }
 
+.layout-viewport {
+  container-name: app-layout;
+  container-type: inline-size;
+  min-height: 100vh;
+  width: 100%;
+}
+
+.layout-viewport.layout-mobile {
+  margin-inline: auto;
+  max-width: 430px;
+}
+
+.layout-viewport.layout-desktop {
+  min-width: 1100px;
+}
+
 .backend-layout {
   background: var(--surface);
   min-height: 100vh;
@@ -67,6 +90,19 @@ select {
   position: sticky;
   top: 0;
   height: 100vh;
+}
+
+.desktop-layout-toggle {
+  bottom: 20px;
+  left: 16px;
+  position: absolute;
+  right: 16px;
+}
+
+.desktop-layout-toggle .ant-btn {
+  border-color: #dbe4f8;
+  color: #526079;
+  font-weight: 700;
 }
 
 .backend-brand {
@@ -117,6 +153,85 @@ select {
 
 .mobile-app-header {
   display: none;
+}
+
+.mobile-nav-drawer-root .ant-drawer-mask {
+  background: rgba(16, 24, 40, 0.42);
+  backdrop-filter: blur(2px);
+}
+
+.mobile-nav-drawer-root .ant-drawer-content {
+  border-radius: 0 18px 18px 0;
+}
+
+.mobile-nav-drawer-root .ant-drawer-header {
+  border-bottom: 1px solid #edf0f7;
+  min-height: 68px;
+  padding: 14px 18px;
+}
+
+.mobile-nav-drawer-root .ant-drawer-body {
+  padding: 14px 12px;
+}
+
+.mobile-drawer-brand {
+  align-items: center;
+  color: #172033;
+  display: flex;
+  font-size: 17px;
+  font-weight: 800;
+  gap: 10px;
+}
+
+.mobile-drawer-brand .anticon {
+  color: #0d5bff;
+  font-size: 22px;
+}
+
+.mobile-drawer-nav {
+  display: grid;
+  gap: 6px;
+}
+
+.mobile-drawer-nav-item {
+  align-items: center;
+  appearance: none;
+  background: transparent;
+  border: 0;
+  border-radius: 10px;
+  color: #525d73;
+  cursor: pointer;
+  display: grid;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  gap: 12px;
+  grid-template-columns: 22px 1fr auto;
+  min-height: 52px;
+  padding: 0 14px;
+  text-align: left;
+  transition: background-color 160ms ease, color 160ms ease;
+  width: 100%;
+}
+
+.mobile-drawer-nav-item:hover {
+  background: #f5f8ff;
+  color: #0d5bff;
+}
+
+.mobile-drawer-nav-item.is-active {
+  background: #eef4ff;
+  color: #0d5bff;
+}
+
+.mobile-drawer-nav-item:focus-visible {
+  outline: 2px solid #0d5bff;
+  outline-offset: 2px;
+}
+
+.mobile-drawer-nav-arrow {
+  font-size: 12px;
+  opacity: 0.55;
 }
 
 .topbar {
@@ -1764,7 +1879,7 @@ select {
   border-color: #b8cdfc !important;
 }
 
-@media (max-width: 900px) {
+@container app-layout (max-width: 900px) {
   .backend-layout {
     display: block;
   }
@@ -1801,26 +1916,48 @@ select {
     min-width: 0;
   }
 
-  .mobile-brand .anticon {
+  .mobile-brand > .anticon {
     color: #0d5bff;
     font-size: 21px;
   }
 
-  .mobile-primary-nav.ant-menu-horizontal {
-    border-bottom: 0;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    line-height: 42px;
-    padding: 0 8px;
+  .mobile-menu-button.ant-btn {
+    align-items: center;
+    border-radius: 9px;
+    color: #172033;
+    display: inline-flex;
+    flex: 0 0 auto;
+    height: 38px;
+    justify-content: center;
+    margin-left: -6px;
+    padding: 0;
+    width: 38px;
   }
 
-  .mobile-primary-nav.ant-menu-horizontal > .ant-menu-item {
+  .mobile-menu-button.ant-btn .anticon {
+    font-size: 21px;
+  }
+
+  .mobile-app-actions {
     align-items: center;
     display: flex;
+    flex: 0 0 auto;
+    gap: 4px;
+  }
+
+  .mobile-layout-toggle.ant-btn {
+    align-items: center;
+    border-radius: 9px;
+    color: #526079;
+    display: inline-flex;
+    height: 38px;
     justify-content: center;
-    margin: 0;
-    min-width: 0;
-    padding-inline: 10px;
+    padding: 0;
+    width: 38px;
+  }
+
+  .mobile-layout-toggle.ant-btn .anticon {
+    font-size: 18px;
   }
 
   .backend-content {
@@ -2093,7 +2230,7 @@ select {
   }
 }
 
-@media (max-width: 560px) {
+@container app-layout (max-width: 560px) {
   .backend-content {
     padding-inline: 10px;
   }
