@@ -1,5 +1,13 @@
 # vinext-starter
 
+## 專案版本管理
+
+新功能與修正使用分支及 PR，使用者確認後才合併到 `main`；正式版本使用 Tag 保存可辨識的發布紀錄。
+
+- [版本管理規則與退版方式](docs/version-management.md)
+- [版本變更紀錄](CHANGELOG.md)
+- [助理協作規則](AGENTS.md)
+
 A clean full-stack starter running on
 [vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
 Drizzle support.
