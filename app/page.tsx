@@ -467,6 +467,7 @@ export default function Home() {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("loading");
   const importInputRef = useRef<HTMLInputElement | null>(null);
   const syncingGanttScrollRef = useRef(false);
+  const hasLoadedRemoteRef = useRef(false);
 
   useEffect(() => {
     setIsHydrated(true);
@@ -538,6 +539,7 @@ export default function Home() {
         if (data) {
           applyStoredData(data);
         }
+        hasLoadedRemoteRef.current = true;
         setSyncStatus("saved");
       })
       .catch(() => {
@@ -562,6 +564,11 @@ export default function Home() {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
       window.localStorage.setItem(VISIBLE_TASK_COLUMNS_KEY, JSON.stringify(Array.from(visibleTaskColumns)));
       window.localStorage.setItem(EPIC_MAIN_WIDTH_KEY, String(epicMainWidth));
+      // A failed read must not overwrite remote data with the local fallback.
+      // Keep edits local until a reload successfully reads the remote store.
+      if (!hasLoadedRemoteRef.current) {
+        return;
+      }
       setSyncStatus("saving");
       const controller = new AbortController();
       const timer = window.setTimeout(() => {
@@ -1833,6 +1840,7 @@ export default function Home() {
                                     ) : null}
                                     {visibleTaskColumns.has("task") ? (
                                       <Input
+                                        aria-label={`${task.wbs} 任務名稱`}
                                         className="task-title-input"
                                         value={task.title}
                                         variant="borderless"
