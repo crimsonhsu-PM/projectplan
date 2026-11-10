@@ -63,7 +63,6 @@ import {
   normalizeEpic,
   normalizeEpicCategory,
   normalizeSettings,
-  isEpicContinuedInSheet,
   isEpicInSheet,
   normalizeTask,
   parseSpreadsheetText,
@@ -1798,11 +1797,6 @@ export default function Home() {
                                   {sheetNameById.get(epic.sheetId ?? "") ?? "不分頁"}
                                 </Tag>
                               </Dropdown>
-                              ) : null}
-                              {currentSheet && isEpicContinuedInSheet(epic, currentSheet, settings.sheets) ? (
-                                <Tag className="epic-sheet-tag" color="orange" title={`這個 Epic 屬於「${sheetNameById.get(epic.sheetId ?? "") ?? ""}」，有工作延續到這個分頁`}>
-                                  延續
-                                </Tag>
                               ) : null}
                               <Button type="link" className="epic-title-button" icon={<EditOutlined />} onClick={() => setEditingEpicId(epic.id)}>
                                 {epic.title}
