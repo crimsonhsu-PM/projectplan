@@ -1772,6 +1772,7 @@ export default function Home() {
                               />
                               <Tag color="blue">EPIC {epic.wbs}</Tag>
                               <Tag color={epic.category === "機台" ? "geekblue" : "cyan"}>{epic.category}</Tag>
+                              {!currentSheet ? (
                               <Dropdown
                                 trigger={["click"]}
                                 menu={{
@@ -1797,8 +1798,9 @@ export default function Home() {
                                   {sheetNameById.get(epic.sheetId ?? "") ?? "不分頁"}
                                 </Tag>
                               </Dropdown>
+                              ) : null}
                               {currentSheet && isEpicContinuedInSheet(epic, currentSheet, settings.sheets) ? (
-                                <Tag className="epic-sheet-tag" color="orange" title="這個 Epic 屬於較早的分頁，有工作延續到這個分頁">
+                                <Tag className="epic-sheet-tag" color="orange" title={`這個 Epic 屬於「${sheetNameById.get(epic.sheetId ?? "") ?? ""}」，有工作延續到這個分頁`}>
                                   延續
                                 </Tag>
                               ) : null}
