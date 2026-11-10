@@ -28,6 +28,10 @@ const lastSaved = new Map<string, string>(); // db path -> JSON written/read las
 let dbPromise: Promise<DB | null> | null = null;
 let saveChain: Promise<unknown> = Promise.resolve();
 let pending: StoredProjectData | null = null;
+let appliedMigrations: string[] = [];
+// One-off data migrations shipped as files next to index.html: { [itemId]: { title?, rm? } }.
+// Applied once per database, by id, so edits made in the tool are kept.
+const MIGRATIONS = ["games-v2"];
 
 function getDb(): Promise<DB | null> {
   if (!dbPromise) {
@@ -59,8 +63,9 @@ async function loadSeed(): Promise<StoredProjectData | null> {
 async function readAll(db: DB): Promise<StoredProjectData | null> {
   const meta = await db.doc(META_PATH).get();
   if (!meta.exists) return null;
-  const metaData = meta.data() as { project?: StoredProjectData["project"]; settings?: StoredProjectData["settings"]; epicIds?: string[] };
-  lastSaved.set(META_PATH, JSON.stringify({ project: metaData.project, settings: metaData.settings, epicIds: metaData.epicIds }));
+  const metaData = meta.data() as { project?: StoredProjectData["project"]; settings?: StoredProjectData["settings"]; epicIds?: string[]; migrations?: string[] };
+  appliedMigrations = Array.isArray(metaData.migrations) ? metaData.migrations : [];
+  lastSaved.set(META_PATH, JSON.stringify({ project: metaData.project, settings: metaData.settings, epicIds: metaData.epicIds, migrations: appliedMigrations }));
   const snap = await db.collection("epics").limit(1000).get();
   const byId = new Map<string, Epic>();
   for (const doc of snap.docs) {
@@ -92,7 +97,7 @@ async function writeAll(db: DB, data: StoredProjectData) {
       lastSaved.delete(path);
     }
   }
-  const metaBody = { project: data.project, settings: data.settings, epicIds: epics.map((epic) => epic.id) };
+  const metaBody = { project: data.project, settings: data.settings, epicIds: epics.map((epic) => epic.id), migrations: appliedMigrations };
   const metaJson = JSON.stringify(metaBody);
   const updatedAt = new Date().toISOString();
   if (lastSaved.get(META_PATH) !== metaJson) {
@@ -102,13 +107,44 @@ async function writeAll(db: DB, data: StoredProjectData) {
   return updatedAt;
 }
 
+type Patch = Record<string, { title?: string; rm?: string }>;
+
+async function applyMigrations(db: DB, data: StoredProjectData) {
+  const todo = MIGRATIONS.filter((name) => !appliedMigrations.includes(name));
+  if (!todo.length) return data;
+  for (const name of todo) {
+    try {
+      const response = await fetch(`./migrations/${name}.json`, { cache: "no-store" });
+      if (!response.ok) continue;
+      const patch = (await response.json()) as Patch;
+      for (const epic of data.epics ?? []) {
+        for (const item of [epic, ...epic.tasks]) {
+          const change = patch[item.id];
+          if (change) Object.assign(item, change);
+        }
+      }
+      appliedMigrations = [...appliedMigrations, name];
+    } catch {
+      // leave it for the next visit
+    }
+  }
+  try {
+    await writeAll(db, data);
+  } catch {
+    // viewer cannot write: show the migrated view anyway
+  }
+  return data;
+}
+
 async function handleGet() {
   const db = await getDb();
   if (!db) return json({ error: "storage_unavailable" }, 503);
   let data = await readAll(db);
+  if (data) data = await applyMigrations(db, data);
   if (!data) {
     const seed = await loadSeed();
     if (seed) {
+      appliedMigrations = [...MIGRATIONS];
       try {
         await writeAll(db, seed);
         data = seed;
