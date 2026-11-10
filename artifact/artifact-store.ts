@@ -38,7 +38,7 @@ let appliedMigrations: string[] = [];
 type Patch = Record<string, { title?: string; rm?: string }>;
 
 // Code migrations run in order after the file ones; each returns a backup to keep in backups/<name>.
-const MIGRATIONS = ["games-v2", "auto-assign-v1", "sheets-v1", "sheet-dates-v1"];
+const MIGRATIONS = ["games-v2", "auto-assign-v1", "sheets-v1", "sheet-dates-v1", "sheets-home-v2"];
 const CODE_MIGRATIONS: Record<string, (data: StoredProjectData) => Record<string, unknown>> = {
   // 把去識別化的遊戲名稱改回真實名稱（原本放在 migrations/games-v2.json，改為內建避免讀檔失敗）。
   "games-v2": (data) => {
@@ -61,7 +61,7 @@ const CODE_MIGRATIONS: Record<string, (data: StoredProjectData) => Record<string
     data.epics = result.epics;
     return { count: result.count, originalAssignee: result.changes };
   },
-  // 依備註開頭「2026 上半／下半／上半→下半延續」建立兩個分頁並分好 Epic（延續的放下半）。
+  // 依備註開頭「2026 上半／下半／上半→下半延續」建立兩個分頁並分好 Epic（延續的先放下半，sheets-home-v2 再歸回上半）。
   "sheets-v1": (data) => {
     const settings = (data.settings ??= {});
     if (settings.sheets?.length) return { skipped: true };
@@ -95,6 +95,17 @@ const CODE_MIGRATIONS: Record<string, (data: StoredProjectData) => Record<string
       set[sheet.id] = sheet.startDate;
     }
     return { set };
+  },
+  // 「上半→下半延續」的 Epic 歸回上半年；下半年改由 Task 日期自動顯示為延續。
+  "sheets-home-v2": (data) => {
+    const moved: string[] = [];
+    for (const epic of data.epics ?? []) {
+      if (epic.sheetId === "sheet-2026-h2" && /^2026\s*上半→下半/.test(epic.rm ?? "")) {
+        epic.sheetId = "sheet-2026-h1";
+        moved.push(epic.id);
+      }
+    }
+    return { moved };
   },
 };
 

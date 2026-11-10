@@ -63,6 +63,8 @@ import {
   normalizeEpic,
   normalizeEpicCategory,
   normalizeSettings,
+  isEpicContinuedInSheet,
+  isEpicInSheet,
   normalizeTask,
   parseSpreadsheetText,
   renumberTasks,
@@ -660,7 +662,7 @@ export default function Home() {
   const filteredEpics = useMemo(
     () =>
       epics.flatMap((epic) => {
-        if (currentSheetId !== ALL_SHEETS && epic.sheetId !== currentSheetId) {
+        if (currentSheet && !isEpicInSheet(epic, currentSheet, settings.sheets)) {
           return [];
         }
         const hasDepartmentFilter = Boolean(departmentFilter && departmentFilter !== ALL_FILTER_VALUE);
@@ -675,7 +677,7 @@ export default function Home() {
         );
         return tasks.length ? [{ ...epic, tasks }] : [];
       }),
-    [agentFilter, currentSheetId, departmentFilter, epics],
+    [agentFilter, currentSheet, departmentFilter, epics, settings.sheets],
   );
   const projectFilteredEpics = useMemo(
     () =>
@@ -1525,7 +1527,7 @@ export default function Home() {
                             title="雙擊重新命名"
                             onDoubleClick={() => setSheetDialog({ mode: "rename", id: sheet.id, name: sheet.name })}
                           >
-                            {sheet.name}（{epics.filter((epic) => epic.sheetId === sheet.id).length}）
+                            {sheet.name}（{epics.filter((epic) => isEpicInSheet(epic, sheet, settings.sheets)).length}）
                           </span>
                         ),
                       })),
@@ -1583,7 +1585,7 @@ export default function Home() {
                   <Button icon={<DownloadOutlined />} onClick={() =>
                       exportProjectExcel(
                         viewProject,
-                        currentSheet ? epics.filter((epic) => epic.sheetId === currentSheet.id) : epics,
+                        currentSheet ? epics.filter((epic) => isEpicInSheet(epic, currentSheet, settings.sheets)) : epics,
                         holidayDates,
                       )
                     } aria-label="匯出 Excel">
@@ -1795,6 +1797,11 @@ export default function Home() {
                                   {sheetNameById.get(epic.sheetId ?? "") ?? "不分頁"}
                                 </Tag>
                               </Dropdown>
+                              {currentSheet && isEpicContinuedInSheet(epic, currentSheet, settings.sheets) ? (
+                                <Tag className="epic-sheet-tag" color="orange" title="這個 Epic 屬於較早的分頁，有工作延續到這個分頁">
+                                  延續
+                                </Tag>
+                              ) : null}
                               <Button type="link" className="epic-title-button" icon={<EditOutlined />} onClick={() => setEditingEpicId(epic.id)}>
                                 {epic.title}
                               </Button>

@@ -13,6 +13,7 @@ import {
   type PersonnelScheduleSummary,
   type ProjectManpowerSummary,
   type SettingOption,
+  type SheetOption,
   type Task,
 } from "./planner-types";
 
@@ -483,4 +484,17 @@ function normalizeHolidayRanges(values: unknown, fallback: HolidayRange[]) {
     return null;
   }).filter((value): value is HolidayRange => Boolean(value));
   return normalized.length ? normalized : fallback;
+}
+
+// 分頁歸屬：Epic 一定出現在自己的分頁（sheetId）；若它有工作排到比自己分頁更晚的分頁起始日之後，
+// 也會以「延續」出現在那個較晚的分頁（例：上半年專案有 Task 排到下半年，就同時出現在下半年）。
+export function isEpicContinuedInSheet(epic: Epic, sheet: SheetOption, sheets: SheetOption[]) {
+  if (!epic.sheetId || epic.sheetId === sheet.id || !sheet.startDate) return false;
+  const home = sheets.find((item) => item.id === epic.sheetId);
+  if (!home?.startDate || home.startDate >= sheet.startDate) return false;
+  return epic.tasks.some((task) => task.finishDate >= sheet.startDate!);
+}
+
+export function isEpicInSheet(epic: Epic, sheet: SheetOption, sheets: SheetOption[]) {
+  return epic.sheetId === sheet.id || isEpicContinuedInSheet(epic, sheet, sheets);
 }
