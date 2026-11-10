@@ -38,7 +38,7 @@ let appliedMigrations: string[] = [];
 type Patch = Record<string, { title?: string; rm?: string }>;
 
 // Code migrations run in order after the file ones; each returns a backup to keep in backups/<name>.
-const MIGRATIONS = ["games-v2", "auto-assign-v1", "sheets-v1", "sheet-dates-v1", "sheets-home-v2"];
+const MIGRATIONS = ["games-v2", "auto-assign-v1", "sheets-v1", "sheet-dates-v1", "sheets-home-v2", "game-first-v1"];
 const CODE_MIGRATIONS: Record<string, (data: StoredProjectData) => Record<string, unknown>> = {
   // 把去識別化的遊戲名稱改回真實名稱（原本放在 migrations/games-v2.json，改為內建避免讀檔失敗）。
   "games-v2": (data) => {
@@ -106,6 +106,18 @@ const CODE_MIGRATIONS: Record<string, (data: StoredProjectData) => Record<string
       }
     }
     return { moved };
+  },
+  // 遊戲開發相關的 Epic 排到最上面（其餘維持原順序）；清單寫入 backups 供檢查。
+  "game-first-v1": (data) => {
+    const epics = data.epics ?? [];
+    const isGame = (epic: Epic) =>
+      /新遊戲|遊戲開發|game/i.test(epic.title) || ["全新開發", "移植開發"].includes(epic.type);
+    const list = (items: Epic[]) => items.map((epic) => ({ id: epic.id, title: epic.title, type: epic.type, category: epic.category }));
+    const games = epics.filter(isGame);
+    const others = epics.filter((epic) => !isGame(epic));
+    const originalOrder = epics.map((epic) => epic.id);
+    data.epics = [...games, ...others];
+    return { games: list(games), others: list(others), originalOrder };
   },
 };
 
