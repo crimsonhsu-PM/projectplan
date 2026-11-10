@@ -267,7 +267,7 @@ function downloadImportTemplate() {
     spreadsheetRow(["TASK", "機台", "24.2", "", "overview", "完成", "企劃", "Simon", "2026-05-05", "2026-05-20", ""]),
   ];
   const html = `<!doctype html><html><head><meta charset="UTF-8"></head><body><table>${rows.join("")}</table></body></html>`;
-  downloadTextFile("RSG匯入範例.xls", html, "application/vnd.ms-excel;charset=utf-8");
+  downloadTextFile("匯入範例.xls", html, "application/vnd.ms-excel;charset=utf-8");
 }
 
 function downloadTextFile(fileName: string, content: string, type: string) {

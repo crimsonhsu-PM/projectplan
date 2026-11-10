@@ -3,7 +3,7 @@ import "antd/dist/reset.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "RSG Project Plan",
+  title: "Project Plan",
   description: "Epic and task project planner with an editable daily Gantt chart.",
   icons: {
     icon: "/favicon.svg",
