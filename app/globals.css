@@ -391,6 +391,16 @@ select {
   border-bottom-color: var(--white) !important;
 }
 
+.epic-sheet-tag {
+  cursor: pointer;
+  margin-inline-end: 0;
+}
+
+.epic-sheet-tag-none {
+  border-style: dashed;
+  color: var(--muted);
+}
+
 .epic-filter-bar {
   align-items: center;
   background: var(--white);

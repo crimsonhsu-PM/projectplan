@@ -27,6 +27,7 @@ import {
 import type { TableProps } from "antd";
 import {
   CalendarOutlined,
+  FolderOutlined,
   DeleteOutlined,
   DesktopOutlined,
   DownloadOutlined,
@@ -116,6 +117,7 @@ const STORAGE_KEY = "rsg-project-plan-v2";
 const VISIBLE_TASK_COLUMNS_KEY = "rsg-project-plan-visible-task-columns-v1";
 const ACTIVE_SHEET_KEY = "rsg-project-plan-active-sheet-v1";
 const ALL_SHEETS = "__all__";
+const NO_SHEET = "__none__";
 const LAYOUT_MODE_KEY = "rsg-project-plan-layout-mode-v1";
 const EPIC_MAIN_WIDTH_KEY = "rsg-project-plan-epic-main-width-v1";
 const ALL_FILTER_VALUE = "__all__";
@@ -634,6 +636,7 @@ export default function Home() {
       ],
     [assigneeNames, epics],
   );
+  const sheetNameById = useMemo(() => new Map(settings.sheets.map((sheet) => [sheet.id, sheet.name])), [settings.sheets]);
   const currentSheetId = settings.sheets.some((sheet) => sheet.id === activeSheetId) ? activeSheetId : ALL_SHEETS;
   const filteredEpics = useMemo(
     () =>
@@ -1746,6 +1749,31 @@ export default function Home() {
                               />
                               <Tag color="blue">EPIC {epic.wbs}</Tag>
                               <Tag color={epic.category === "機台" ? "geekblue" : "cyan"}>{epic.category}</Tag>
+                              <Dropdown
+                                trigger={["click"]}
+                                menu={{
+                                  selectable: true,
+                                  selectedKeys: [epic.sheetId && sheetNameById.has(epic.sheetId) ? epic.sheetId : NO_SHEET],
+                                  items: [
+                                    ...settings.sheets.map((sheet) => ({ key: sheet.id, label: sheet.name })),
+                                    { type: "divider" as const },
+                                    { key: NO_SHEET, label: "不分頁" },
+                                  ],
+                                  onClick: ({ key }) => updateEpic(epic.id, { sheetId: key === NO_SHEET ? undefined : key }),
+                                }}
+                              >
+                                <Tag
+                                  aria-label={`分頁：${sheetNameById.get(epic.sheetId ?? "") ?? "不分頁"}，點擊可移到其他分頁`}
+                                  className={`epic-sheet-tag ${epic.sheetId && sheetNameById.has(epic.sheetId) ? "" : "epic-sheet-tag-none"}`}
+                                  color={epic.sheetId && sheetNameById.has(epic.sheetId) ? "purple" : "default"}
+                                  icon={<FolderOutlined />}
+                                  role="button"
+                                  tabIndex={0}
+                                  title="點擊移到其他分頁"
+                                >
+                                  {sheetNameById.get(epic.sheetId ?? "") ?? "不分頁"}
+                                </Tag>
+                              </Dropdown>
                               <Button type="link" className="epic-title-button" icon={<EditOutlined />} onClick={() => setEditingEpicId(epic.id)}>
                                 {epic.title}
                               </Button>
