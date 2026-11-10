@@ -44,3 +44,4 @@ yarn-error.log*
 /work/
 /dist-artifact/
 /artifact/public/
+/artifact/private/

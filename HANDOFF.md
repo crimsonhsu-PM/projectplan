@@ -42,6 +42,8 @@ pnpm dev
 - 建置：`pnpm build:artifact`，輸出 `dist-artifact/`（`index.html`＋`assets/*`），由 Claude 以 artifact 檔案發佈。
 - 入口：`artifact/main.tsx` 直接渲染 `app/page.tsx`；`artifact/artifact-store.ts` 攔截 `/api/project-data` 的 GET／PUT，改存到 artifact 的 `db` 能力：`plan/meta`（project、settings、Epic 順序）與 `epics/<id>`（每個 Epic 一份文件，避免單文件超過 256 KiB）。只寫入有變動的文件。
 - 首次載入若 db 為空，會由同一 artifact 的 `seed.json` 搬入資料。資料檔放在 `artifact/public/`（不進 git，含專案資料）。
+- db 讀出的快照是唯讀物件，`readAll` 先 `structuredClone` 再交給遷移與畫面。
+- 含真實名稱的修正檔放 `artifact/private/*.json`（不進 git，建置時打包；目前 `games-v2.json` 已改為程式遷移從這裡讀）。
 - 一次性資料修正放 `artifact/public/migrations/<name>.json`（依 id 修改 title／rm），並在 `artifact-store.ts` 的 `MIGRATIONS` 登記；需要程式運算的修正放 `CODE_MIGRATIONS`（例：`auto-assign-v1` 用 `lib/auto-assign.ts` 依部門自動分派負責人，原值備份在 db 的 `backups/auto-assign-v1`）；每個資料庫只套用一次，已套用的記在 `plan/meta.migrations`。
 - 專案分頁：`settings.sheets`（id、name）＋ `epic.sheetId`；分頁會篩選專案時程／專案人力／人員時程三個畫面，新增 Epic 或匯入時歸到目前分頁，刪分頁不刪 Epic。首次由 `sheets-v1` 依備註開頭分成「2026 上半年／下半年開發項目」（上半→下半延續放下半）。
 - 權限：db 規則為所有可開啟者可讀、Editor／Owner 才能寫。

@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 // Storage adapter for the Claude-artifact build.
 //
 // app/page.tsx talks to `/api/project-data` (GET → { data }, PUT → { ok, updatedAt }).
@@ -9,6 +10,8 @@
 // A one-time migration seeds the db from ./seed.json when plan/meta does not exist yet.
 
 import { autoAssign } from "../lib/auto-assign";
+// 含真實名稱的資料修正檔不進 git（artifact/private/，建置時有就打包進去）。
+const privatePatches = import.meta.glob<{ default: Record<string, { title?: string; rm?: string }> }>("./private/*.json", { eager: true });
 import type { Epic, StoredProjectData } from "../lib/planner-types";
 
 type Snap = { exists: boolean; id: string; data(): Record<string, unknown> | undefined };
@@ -32,9 +35,27 @@ let pending: StoredProjectData | null = null;
 let appliedMigrations: string[] = [];
 // One-off data migrations shipped as files next to index.html: { [itemId]: { title?, rm? } }.
 // Applied once per database, by id, so edits made in the tool are kept.
+type Patch = Record<string, { title?: string; rm?: string }>;
+
 // Code migrations run in order after the file ones; each returns a backup to keep in backups/<name>.
 const MIGRATIONS = ["games-v2", "auto-assign-v1", "sheets-v1"];
 const CODE_MIGRATIONS: Record<string, (data: StoredProjectData) => Record<string, unknown>> = {
+  // 把去識別化的遊戲名稱改回真實名稱（原本放在 migrations/games-v2.json，改為內建避免讀檔失敗）。
+  "games-v2": (data) => {
+    const patch = privatePatches["./private/games-v2.json"]?.default;
+    if (!patch) throw new Error("games-v2 patch not bundled");
+    let count = 0;
+    for (const epic of data.epics ?? []) {
+      for (const item of [epic, ...epic.tasks]) {
+        const change = patch[item.id];
+        if (change) {
+          Object.assign(item, change);
+          count += 1;
+        }
+      }
+    }
+    return { count };
+  },
   "auto-assign-v1": (data) => {
     const result = autoAssign(data.epics ?? [], data.settings?.agents ?? []);
     data.epics = result.epics;
@@ -90,13 +111,14 @@ async function loadSeed(): Promise<StoredProjectData | null> {
 async function readAll(db: DB): Promise<StoredProjectData | null> {
   const meta = await db.doc(META_PATH).get();
   if (!meta.exists) return null;
-  const metaData = meta.data() as { project?: StoredProjectData["project"]; settings?: StoredProjectData["settings"]; epicIds?: string[]; migrations?: string[] };
+  // db snapshots are read-only: copy them so migrations and the app can change the objects.
+  const metaData = structuredClone(meta.data() ?? {}) as { project?: StoredProjectData["project"]; settings?: StoredProjectData["settings"]; epicIds?: string[]; migrations?: string[] };
   appliedMigrations = Array.isArray(metaData.migrations) ? metaData.migrations : [];
   lastSaved.set(META_PATH, JSON.stringify({ project: metaData.project, settings: metaData.settings, epicIds: metaData.epicIds, migrations: appliedMigrations }));
   const snap = await db.collection("epics").limit(1000).get();
   const byId = new Map<string, Epic>();
   for (const doc of snap.docs) {
-    const body = doc.data() as { epic?: Epic } | undefined;
+    const body = structuredClone(doc.data()) as { epic?: Epic } | undefined;
     if (!body?.epic) continue;
     byId.set(body.epic.id, body.epic);
     lastSaved.set(`epics/${doc.id}`, JSON.stringify(body.epic));
@@ -134,7 +156,6 @@ async function writeAll(db: DB, data: StoredProjectData) {
   return updatedAt;
 }
 
-type Patch = Record<string, { title?: string; rm?: string }>;
 
 async function applyMigrations(db: DB, data: StoredProjectData) {
   const todo = MIGRATIONS.filter((name) => !appliedMigrations.includes(name));
