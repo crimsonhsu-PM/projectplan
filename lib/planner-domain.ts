@@ -408,7 +408,8 @@ function normalizeSheets(values: unknown, fallback: AppSettings["sheets"]) {
     const name = String(item?.name ?? "").trim();
     if (!id || !name || seen.has(id)) return [];
     seen.add(id);
-    return [{ id, name }];
+    const startDate = String((item as { startDate?: unknown }).startDate ?? "").trim();
+    return [/^\d{4}-\d{2}-\d{2}$/.test(startDate) ? { id, name, startDate } : { id, name }];
   });
 }
 

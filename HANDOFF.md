@@ -45,7 +45,7 @@ pnpm dev
 - db 讀出的快照是唯讀物件，`readAll` 先 `structuredClone` 再交給遷移與畫面。
 - 含真實名稱的修正檔放 `artifact/private/*.json`（不進 git，建置時打包；目前 `games-v2.json` 已改為程式遷移從這裡讀）。
 - 一次性資料修正放 `artifact/public/migrations/<name>.json`（依 id 修改 title／rm），並在 `artifact-store.ts` 的 `MIGRATIONS` 登記；需要程式運算的修正放 `CODE_MIGRATIONS`（例：`auto-assign-v1` 用 `lib/auto-assign.ts` 依部門自動分派負責人，原值備份在 db 的 `backups/auto-assign-v1`）；每個資料庫只套用一次，已套用的記在 `plan/meta.migrations`。
-- 專案分頁：`settings.sheets`（id、name）＋ `epic.sheetId`；分頁會篩選專案時程／專案人力／人員時程三個畫面，新增 Epic 或匯入時歸到目前分頁，刪分頁不刪 Epic。首次由 `sheets-v1` 依備註開頭分成「2026 上半年／下半年開發項目」（上半→下半延續放下半）。
+- 專案分頁：`settings.sheets`（id、name、startDate＝該頁甘特圖起始日；標題列的名稱與 Start date 在分頁中編輯的是分頁本身，匯出也只匯該頁）＋ `epic.sheetId`；分頁會篩選專案時程／專案人力／人員時程三個畫面，新增 Epic 或匯入時歸到目前分頁，刪分頁不刪 Epic。首次由 `sheets-v1` 依備註開頭分成「2026 上半年／下半年開發項目」（上半→下半延續放下半）。
 - 權限：db 規則為所有可開啟者可讀、Editor／Owner 才能寫。
 - 匯出：artifact 框架不能直接下載，`lib/save-file.ts` 改走 `downloads` 能力；其允許清單沒有 `.xls`，匯出檔會存成 `.html`（Excel 可開啟，匯入也接受 `.html`）。
 - Cloudflare／Sites 版的程式與 `pnpm build` 不受影響。

@@ -638,6 +638,25 @@ export default function Home() {
   );
   const sheetNameById = useMemo(() => new Map(settings.sheets.map((sheet) => [sheet.id, sheet.name])), [settings.sheets]);
   const currentSheetId = settings.sheets.some((sheet) => sheet.id === activeSheetId) ? activeSheetId : ALL_SHEETS;
+  const currentSheet = settings.sheets.find((sheet) => sheet.id === currentSheetId);
+  // 分頁有自己的名稱與甘特圖起始日；「全部」用專案本身的設定。
+  const viewProject: ProjectMeta = currentSheet
+    ? { ...project, projectName: currentSheet.name, startDate: currentSheet.startDate || project.startDate }
+    : project;
+  function updateViewProject(patch: Partial<Pick<ProjectMeta, "projectName" | "startDate">>) {
+    if (!currentSheet) {
+      setProject((current) => ({ ...current, ...patch }));
+      return;
+    }
+    setSettings((current) => ({
+      ...current,
+      sheets: current.sheets.map((sheet) =>
+        sheet.id === currentSheet.id
+          ? { ...sheet, name: patch.projectName ?? sheet.name, startDate: patch.startDate ?? sheet.startDate }
+          : sheet,
+      ),
+    }));
+  }
   const filteredEpics = useMemo(
     () =>
       epics.flatMap((epic) => {
@@ -742,11 +761,11 @@ export default function Home() {
       }),
     [collapsedEpicIds, visibleEpics],
   );
-  const { start, end } = useMemo(() => getGanttRange(project.startDate, visibleEpics), [project.startDate, visibleEpics]);
+  const { start, end } = useMemo(() => getGanttRange(viewProject.startDate, visibleEpics), [viewProject.startDate, visibleEpics]);
   const days = useMemo(() => enumerateDays(start, end), [start, end]);
   const personnelRange = useMemo(
-    () => getGanttRange(project.startDate, personnelEpics),
-    [personnelEpics, project.startDate],
+    () => getGanttRange(viewProject.startDate, personnelEpics),
+    [personnelEpics, viewProject.startDate],
   );
   const personnelDays = useMemo(
     () => enumerateDays(personnelRange.start, personnelRange.end),
@@ -1076,7 +1095,8 @@ export default function Home() {
     if (!name) return;
     if (sheetDialog.mode === "add") {
       const id = `sheet-${Date.now()}`;
-      setSettings((current) => ({ ...current, sheets: [...current.sheets, { id, name }] }));
+      const startDate = formatIso(new Date());
+      setSettings((current) => ({ ...current, sheets: [...current.sheets, { id, name, startDate }] }));
       setActiveSheetId(id);
     } else if (sheetDialog.id) {
       setSettings((current) => ({
@@ -1107,7 +1127,7 @@ export default function Home() {
 
   function addEpic() {
     const baseEpic = blankEpic(epics.length + 1);
-    const startDate = project.startDate;
+    const startDate = viewProject.startDate;
     const finishDate = formatIso(addDays(new Date(`${startDate}T00:00:00`), 14));
     const epic = {
       ...baseEpic,
@@ -1540,15 +1560,15 @@ export default function Home() {
                     <Input
                       aria-label="專案名稱"
                       className="project-name-input"
-                      value={project.projectName}
+                      value={viewProject.projectName}
                       variant="borderless"
-                      onChange={(event) => setProject({ ...project, projectName: event.target.value })}
+                      onChange={(event) => updateViewProject({ projectName: event.target.value })}
                     />
                   </div>
                   <Field label="Start date">
                     <DatePicker
-                      value={dayjs(project.startDate)}
-                      onChange={(date) => setProject({ ...project, startDate: date ? date.format("YYYY-MM-DD") : project.startDate })}
+                      value={dayjs(viewProject.startDate)}
+                      onChange={(date) => date && updateViewProject({ startDate: date.format("YYYY-MM-DD") })}
                       suffixIcon={<CalendarOutlined />}
                       allowClear={false}
                       inputReadOnly
@@ -1560,7 +1580,13 @@ export default function Home() {
                   <Button icon={<UploadOutlined />} onClick={() => setIsImportModalOpen(true)} aria-label="匯入 Excel">
                     匯入
                   </Button>
-                  <Button icon={<DownloadOutlined />} onClick={() => exportProjectExcel(project, epics, holidayDates)} aria-label="匯出 Excel">
+                  <Button icon={<DownloadOutlined />} onClick={() =>
+                      exportProjectExcel(
+                        viewProject,
+                        currentSheet ? epics.filter((epic) => epic.sheetId === currentSheet.id) : epics,
+                        holidayDates,
+                      )
+                    } aria-label="匯出 Excel">
                     匯出
                   </Button>
                   </section>
@@ -1596,13 +1622,8 @@ export default function Home() {
                         <Field label="Start date">
                           <DatePicker
                             aria-label="人員時程 Start date"
-                            value={dayjs(project.startDate)}
-                            onChange={(date) =>
-                              setProject({
-                                ...project,
-                                startDate: date ? date.format("YYYY-MM-DD") : project.startDate,
-                              })
-                            }
+                            value={dayjs(viewProject.startDate)}
+                            onChange={(date) => date && updateViewProject({ startDate: date.format("YYYY-MM-DD") })}
                             suffixIcon={<CalendarOutlined />}
                             allowClear={false}
                             inputReadOnly

@@ -53,6 +53,7 @@ export type AgentOption = {
 export type SheetOption = {
   id: string;
   name: string;
+  startDate?: string; // 甘特圖從哪天開始顯示
 };
 
 export type AppSettings = {

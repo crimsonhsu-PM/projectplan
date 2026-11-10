@@ -38,7 +38,7 @@ let appliedMigrations: string[] = [];
 type Patch = Record<string, { title?: string; rm?: string }>;
 
 // Code migrations run in order after the file ones; each returns a backup to keep in backups/<name>.
-const MIGRATIONS = ["games-v2", "auto-assign-v1", "sheets-v1"];
+const MIGRATIONS = ["games-v2", "auto-assign-v1", "sheets-v1", "sheet-dates-v1"];
 const CODE_MIGRATIONS: Record<string, (data: StoredProjectData) => Record<string, unknown>> = {
   // 把去識別化的遊戲名稱改回真實名稱（原本放在 migrations/games-v2.json，改為內建避免讀檔失敗）。
   "games-v2": (data) => {
@@ -78,6 +78,23 @@ const CODE_MIGRATIONS: Record<string, (data: StoredProjectData) => Record<string
       }
     }
     return { placed };
+  },
+  // 每個分頁有自己的甘特圖起始日：上半年用專案起始日；其他分頁用該頁（不含延續項目）最早的 Epic 開始日。
+  "sheet-dates-v1": (data) => {
+    const sheets = data.settings?.sheets ?? [];
+    const projectStart = data.project?.startDate ?? "2026-01-02";
+    const set: Record<string, string> = {};
+    for (const sheet of sheets) {
+      if (sheet.startDate) continue;
+      const starts = (data.epics ?? [])
+        .filter((epic) => epic.sheetId === sheet.id && !/延續/.test(epic.rm ?? ""))
+        .map((epic) => epic.startDate)
+        .filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date))
+        .sort();
+      sheet.startDate = sheet.id === "sheet-2026-h1" ? projectStart : starts[0] ?? projectStart;
+      set[sheet.id] = sheet.startDate;
+    }
+    return { set };
   },
 };
 
