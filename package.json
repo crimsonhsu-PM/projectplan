@@ -15,8 +15,9 @@
     "test:e2e": "playwright test",
     "test:all": "pnpm run typecheck && pnpm run lint && pnpm run test:coverage && pnpm run build && pnpm run test:e2e",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
-    "db:generate": "drizzle-kit generate"
+    "lint": "eslint . --ignore-pattern dist --ignore-pattern dist-artifact --ignore-pattern .next",
+    "db:generate": "drizzle-kit generate",
+    "build:artifact": "vite build -c vite.artifact.config.ts"
   },
   "dependencies": {
     "@ant-design/icons": "^6.3.2",

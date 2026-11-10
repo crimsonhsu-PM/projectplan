@@ -34,3 +34,14 @@ pnpm dev
 ## 示範資料與已知事項
 
 沒有獨立示範帳號或自動重置端點。清空線上資料需有 D1 管理權，刪除 `project_store` 中 `id=default` 的資料；此動作會清除現有排程，先備份。API 目前以同一筆 `default` 儲存，沒有多租戶隔離；搬遷到獨立公開環境前須評估存取控制。Sites 專屬登入輔助檔 `app/chatgpt-auth.ts` 存在，但目前主要資料 API 未使用它。
+
+## Claude artifact 版本（2026-11 起的主要版本）
+
+自 2026-11-10 起，主要使用與後續維護改在 Claude artifact：https://claude.ai/artifact/KWjMXi4oL8NetBDyGARKTY 。原 OpenAI Sites 網址保留作為備份，不再同步更新。
+
+- 建置：`pnpm build:artifact`，輸出 `dist-artifact/`（`index.html`＋`assets/*`），由 Claude 以 artifact 檔案發佈。
+- 入口：`artifact/main.tsx` 直接渲染 `app/page.tsx`；`artifact/artifact-store.ts` 攔截 `/api/project-data` 的 GET／PUT，改存到 artifact 的 `db` 能力：`plan/meta`（project、settings、Epic 順序）與 `epics/<id>`（每個 Epic 一份文件，避免單文件超過 256 KiB）。只寫入有變動的文件。
+- 首次載入若 db 為空，會由同一 artifact 的 `seed.json` 搬入資料（搬遷用，搬完可移除該檔）。
+- 權限：db 規則為所有可開啟者可讀、Editor／Owner 才能寫。
+- 匯出：artifact 框架不能直接下載，`lib/save-file.ts` 改走 `downloads` 能力；其允許清單沒有 `.xls`，匯出檔會存成 `.html`（Excel 可開啟，匯入也接受 `.html`）。
+- Cloudflare／Sites 版的程式與 `pnpm build` 不受影響。

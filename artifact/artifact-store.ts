@@ -1,0 +1,171 @@
+// Storage adapter for the Claude-artifact build.
+//
+// app/page.tsx talks to `/api/project-data` (GET → { data }, PUT → { ok, updatedAt }).
+// On Cloudflare that is a Worker + D1. Inside a Claude artifact there is no server,
+// so this module intercepts those fetch calls and answers them from the artifact's
+// `db` capability instead. Layout in the db:
+//   plan/meta        { project, settings, epicIds: string[], updatedAt }
+//   epics/<docId>    { epic, order }        (one document per Epic; keeps each doc < 256 KiB)
+// A one-time migration seeds the db from ./seed.json when plan/meta does not exist yet.
+
+import type { Epic, StoredProjectData } from "../lib/planner-types";
+
+type Snap = { exists: boolean; id: string; data(): Record<string, unknown> | undefined };
+type DocRef = {
+  get(): Promise<Snap>;
+  set(data: Record<string, unknown>): Promise<void>;
+  delete(): Promise<void>;
+};
+type DB = {
+  doc(path: string): DocRef;
+  collection(path: string): { limit(n: number): { get(): Promise<{ docs: Snap[] }> } };
+};
+type ClaudeGlobal = { use(name: string): Promise<unknown> };
+
+const API_PATH = "/api/project-data";
+const META_PATH = "plan/meta";
+const lastSaved = new Map<string, string>(); // db path -> JSON written/read last
+let dbPromise: Promise<DB | null> | null = null;
+let saveChain: Promise<unknown> = Promise.resolve();
+let pending: StoredProjectData | null = null;
+
+function getDb(): Promise<DB | null> {
+  if (!dbPromise) {
+    const claude = (window as unknown as { claude?: ClaudeGlobal }).claude;
+    dbPromise = claude ? (claude.use("db") as Promise<DB | null>).catch(() => null) : Promise.resolve(null);
+  }
+  return dbPromise;
+}
+
+function epicDocId(epicId: string) {
+  const safe = epicId.replace(/[^A-Za-z0-9_\-.~:@+]/g, "_").slice(0, 180);
+  return safe === "." || safe === ".." ? `_${safe}` : safe;
+}
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+}
+
+async function loadSeed(): Promise<StoredProjectData | null> {
+  try {
+    const response = await fetch("./seed.json", { cache: "no-store" });
+    if (!response.ok) return null;
+    return (await response.json()) as StoredProjectData;
+  } catch {
+    return null;
+  }
+}
+
+async function readAll(db: DB): Promise<StoredProjectData | null> {
+  const meta = await db.doc(META_PATH).get();
+  if (!meta.exists) return null;
+  const metaData = meta.data() as { project?: StoredProjectData["project"]; settings?: StoredProjectData["settings"]; epicIds?: string[] };
+  lastSaved.set(META_PATH, JSON.stringify({ project: metaData.project, settings: metaData.settings, epicIds: metaData.epicIds }));
+  const snap = await db.collection("epics").limit(1000).get();
+  const byId = new Map<string, Epic>();
+  for (const doc of snap.docs) {
+    const body = doc.data() as { epic?: Epic } | undefined;
+    if (!body?.epic) continue;
+    byId.set(body.epic.id, body.epic);
+    lastSaved.set(`epics/${doc.id}`, JSON.stringify(body.epic));
+  }
+  const order = metaData.epicIds ?? [];
+  const epics = order.map((id) => byId.get(id)).filter((epic): epic is Epic => Boolean(epic));
+  for (const [id, epic] of byId) if (!order.includes(id)) epics.push(epic);
+  return { project: metaData.project, settings: metaData.settings, epics };
+}
+
+async function writeAll(db: DB, data: StoredProjectData) {
+  const epics = data.epics ?? [];
+  const wanted = new Set<string>();
+  for (const [order, epic] of epics.entries()) {
+    const path = `epics/${epicDocId(epic.id)}`;
+    wanted.add(path);
+    const body = JSON.stringify(epic);
+    if (lastSaved.get(path) === body) continue;
+    await db.doc(path).set({ epic: JSON.parse(body), order });
+    lastSaved.set(path, body);
+  }
+  for (const path of Array.from(lastSaved.keys())) {
+    if (path.startsWith("epics/") && !wanted.has(path)) {
+      await db.doc(path).delete();
+      lastSaved.delete(path);
+    }
+  }
+  const metaBody = { project: data.project, settings: data.settings, epicIds: epics.map((epic) => epic.id) };
+  const metaJson = JSON.stringify(metaBody);
+  const updatedAt = new Date().toISOString();
+  if (lastSaved.get(META_PATH) !== metaJson) {
+    await db.doc(META_PATH).set({ ...JSON.parse(metaJson), updatedAt });
+    lastSaved.set(META_PATH, metaJson);
+  }
+  return updatedAt;
+}
+
+async function handleGet() {
+  const db = await getDb();
+  if (!db) return json({ error: "storage_unavailable" }, 503);
+  let data = await readAll(db);
+  if (!data) {
+    const seed = await loadSeed();
+    if (seed) {
+      try {
+        await writeAll(db, seed);
+        data = seed;
+      } catch {
+        data = seed; // viewer cannot write: still show the seed read-only
+      }
+    }
+  }
+  return json({ data });
+}
+
+function handlePut(body: StoredProjectData) {
+  pending = body;
+  const run = saveChain.then(async () => {
+    if (!pending) return new Date().toISOString();
+    const next = pending;
+    pending = null;
+    const db = await getDb();
+    if (!db) throw new Error("storage_unavailable");
+    return writeAll(db, next);
+  });
+  saveChain = run.catch(() => undefined);
+  return run.then(
+    (updatedAt) => json({ ok: true, updatedAt }),
+    () => json({ ok: false, error: "save_failed" }, 500),
+  );
+}
+
+type Downloads = { save(request: { filename: string; data: Blob }): Promise<unknown> };
+
+// The artifact frame cannot start downloads; offer files through the `downloads`
+// capability. Its allowlist has no .xls, so the Excel-readable HTML table is saved
+// as .html (Excel opens it, and the importer accepts .html).
+function installSaveHook() {
+  (window as unknown as { __rsgSaveFile?: (name: string, blob: Blob) => void }).__rsgSaveFile = (name, blob) => {
+    const claude = (window as unknown as { claude?: ClaudeGlobal }).claude;
+    const fileName = name.replace(/\.xls$/i, ".html");
+    if (!claude) return;
+    void (claude.use("downloads") as Promise<Downloads | null>)
+      .then((downloads) => downloads?.save({ filename: fileName, data: blob }))
+      .catch(() => undefined);
+  };
+}
+
+export function installArtifactStore() {
+  installSaveHook();
+  const originalFetch = window.fetch.bind(window);
+  window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    const path = url.startsWith("http") ? new URL(url).pathname : url.split("?")[0];
+    if (path !== API_PATH) return originalFetch(input, init);
+    const method = (init?.method ?? "GET").toUpperCase();
+    try {
+      if (method === "PUT") return await handlePut(JSON.parse(String(init?.body ?? "{}")) as StoredProjectData);
+      return await handleGet();
+    } catch {
+      return json({ error: "storage_error" }, 500);
+    }
+  };
+}

@@ -44,6 +44,7 @@ import {
   TableOutlined,
   UploadOutlined,
 } from "@ant-design/icons";
+import { saveFile } from "@/lib/save-file";
 import dayjs from "dayjs";
 import {
   addDays,
@@ -252,14 +253,7 @@ function exportProjectExcel(project: ProjectMeta, epics: Epic[], holidayDates: S
     holidayDates,
   );
   const blob = new Blob([html], { type: "application/vnd.ms-excel;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `${project.projectName || "project-plan"}.xls`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
+  saveFile(`${project.projectName || "project-plan"}.xls`, blob);
 }
 
 function downloadImportTemplate() {
@@ -274,15 +268,7 @@ function downloadImportTemplate() {
 }
 
 function downloadTextFile(fileName: string, content: string, type: string) {
-  const blob = new Blob([content], { type });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = fileName;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
+  saveFile(fileName, new Blob([content], { type }));
 }
 
 function getGanttRange(projectStartDate: string, epics: Epic[]) {
