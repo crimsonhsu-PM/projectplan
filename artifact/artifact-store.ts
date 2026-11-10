@@ -33,12 +33,30 @@ let appliedMigrations: string[] = [];
 // One-off data migrations shipped as files next to index.html: { [itemId]: { title?, rm? } }.
 // Applied once per database, by id, so edits made in the tool are kept.
 // Code migrations run in order after the file ones; each returns a backup to keep in backups/<name>.
-const MIGRATIONS = ["games-v2", "auto-assign-v1"];
+const MIGRATIONS = ["games-v2", "auto-assign-v1", "sheets-v1"];
 const CODE_MIGRATIONS: Record<string, (data: StoredProjectData) => Record<string, unknown>> = {
   "auto-assign-v1": (data) => {
     const result = autoAssign(data.epics ?? [], data.settings?.agents ?? []);
     data.epics = result.epics;
     return { count: result.count, originalAssignee: result.changes };
+  },
+  // 依備註開頭「2026 上半／下半／上半→下半延續」建立兩個分頁並分好 Epic（延續的放下半）。
+  "sheets-v1": (data) => {
+    const settings = (data.settings ??= {});
+    if (settings.sheets?.length) return { skipped: true };
+    const first = { id: "sheet-2026-h1", name: "2026 上半年開發項目" };
+    const second = { id: "sheet-2026-h2", name: "2026 下半年開發項目" };
+    settings.sheets = [first, second];
+    const placed: Record<string, string> = {};
+    for (const epic of data.epics ?? []) {
+      const rm = epic.rm ?? "";
+      const sheetId = /^2026\s*上半(?!→)/.test(rm) ? first.id : /^2026\s*(下半|上半→下半)/.test(rm) ? second.id : undefined;
+      if (sheetId) {
+        epic.sheetId = sheetId;
+        placed[epic.id] = sheetId;
+      }
+    }
+    return { placed };
   },
 };
 

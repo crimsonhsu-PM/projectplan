@@ -390,12 +390,26 @@ export function buildImportPreview(rows: ImportedRow[], settings: AppSettings, n
 export function normalizeSettings(settings: Partial<AppSettings> | undefined, defaults: AppSettings): AppSettings {
   const departments = normalizeSettingList(settings?.departments, defaults.departments);
   return {
+    sheets: normalizeSheets(settings?.sheets, defaults.sheets),
     departments,
     agents: normalizeAgentList(settings?.agents, defaults.agents, departments),
     holidays: normalizeHolidayRanges(settings?.holidays, defaults.holidays),
     types: normalizeColoredSettingList(settings?.types, defaults.types),
     statuses: normalizeColoredSettingList(settings?.statuses, defaults.statuses),
   };
+}
+
+function normalizeSheets(values: unknown, fallback: AppSettings["sheets"]) {
+  if (!Array.isArray(values)) return fallback;
+  const seen = new Set<string>();
+  return values.flatMap((value) => {
+    const item = value as { id?: unknown; name?: unknown };
+    const id = String(item?.id ?? "").trim();
+    const name = String(item?.name ?? "").trim();
+    if (!id || !name || seen.has(id)) return [];
+    seen.add(id);
+    return [{ id, name }];
+  });
 }
 
 export function settingLabels(values: SettingOption[]) { return values.map((value) => value.label); }

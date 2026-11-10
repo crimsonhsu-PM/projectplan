@@ -114,6 +114,8 @@ const syncStatusLabels: Record<SyncStatus, string> = {
 };
 const STORAGE_KEY = "rsg-project-plan-v2";
 const VISIBLE_TASK_COLUMNS_KEY = "rsg-project-plan-visible-task-columns-v1";
+const ACTIVE_SHEET_KEY = "rsg-project-plan-active-sheet-v1";
+const ALL_SHEETS = "__all__";
 const LAYOUT_MODE_KEY = "rsg-project-plan-layout-mode-v1";
 const EPIC_MAIN_WIDTH_KEY = "rsg-project-plan-epic-main-width-v1";
 const ALL_FILTER_VALUE = "__all__";
@@ -135,6 +137,7 @@ const taskColumnDefinitions = [
 type TaskColumnKey = (typeof taskColumnDefinitions)[number]["key"];
 
 const defaultSettings: AppSettings = {
+  sheets: [],
   departments: ["企劃", "前端", "後端", "QA", "PM"],
   agents: [
     { id: "agent-simon", name: "Simon", department: "企劃" },
@@ -429,6 +432,14 @@ export default function Home() {
   const [isNarrowViewport, setIsNarrowViewport] = useState(false);
   const [activePlannerView, setActivePlannerView] = useState<PlannerView>("schedule");
   const [activeEpicCategory, setActiveEpicCategory] = useState<EpicCategory>("機台");
+  const [activeSheetId, setActiveSheetIdState] = useState<string>(() => {
+    try {
+      return typeof window === "undefined" ? ALL_SHEETS : window.localStorage.getItem(ACTIVE_SHEET_KEY) ?? ALL_SHEETS;
+    } catch {
+      return ALL_SHEETS;
+    }
+  });
+  const [sheetDialog, setSheetDialog] = useState<{ mode: "add" | "rename"; id?: string; name: string } | null>(null);
   const [visiblePersonnelCategories, setVisiblePersonnelCategories] = useState<EpicCategory[]>(
     () => [...epicCategoryOptions],
   );
@@ -623,9 +634,13 @@ export default function Home() {
       ],
     [assigneeNames, epics],
   );
+  const currentSheetId = settings.sheets.some((sheet) => sheet.id === activeSheetId) ? activeSheetId : ALL_SHEETS;
   const filteredEpics = useMemo(
     () =>
       epics.flatMap((epic) => {
+        if (currentSheetId !== ALL_SHEETS && epic.sheetId !== currentSheetId) {
+          return [];
+        }
         const hasDepartmentFilter = Boolean(departmentFilter && departmentFilter !== ALL_FILTER_VALUE);
         const hasAgentFilter = Boolean(agentFilter && agentFilter !== ALL_FILTER_VALUE);
         if (!hasDepartmentFilter && !hasAgentFilter) {
@@ -638,7 +653,7 @@ export default function Home() {
         );
         return tasks.length ? [{ ...epic, tasks }] : [];
       }),
-    [agentFilter, departmentFilter, epics],
+    [agentFilter, currentSheetId, departmentFilter, epics],
   );
   const projectFilteredEpics = useMemo(
     () =>
@@ -1043,6 +1058,50 @@ export default function Home() {
     setTaskDropTarget({ epicId, taskId, position });
   }
 
+  function setActiveSheetId(id: string) {
+    setActiveSheetIdState(id);
+    try {
+      window.localStorage.setItem(ACTIVE_SHEET_KEY, id);
+    } catch {
+      // storage unavailable
+    }
+  }
+
+  function saveSheetDialog() {
+    if (!sheetDialog) return;
+    const name = sheetDialog.name.trim();
+    if (!name) return;
+    if (sheetDialog.mode === "add") {
+      const id = `sheet-${Date.now()}`;
+      setSettings((current) => ({ ...current, sheets: [...current.sheets, { id, name }] }));
+      setActiveSheetId(id);
+    } else if (sheetDialog.id) {
+      setSettings((current) => ({
+        ...current,
+        sheets: current.sheets.map((sheet) => (sheet.id === sheetDialog.id ? { ...sheet, name } : sheet)),
+      }));
+    }
+    setSheetDialog(null);
+  }
+
+  function removeSheet(sheetId: string) {
+    const sheet = settings.sheets.find((item) => item.id === sheetId);
+    if (!sheet) return;
+    const count = epics.filter((epic) => epic.sheetId === sheetId).length;
+    Modal.confirm({
+      title: `刪除分頁「${sheet.name}」？`,
+      content: count ? `分頁裡的 ${count} 個 Epic 不會被刪除，會移回「全部」裡、不屬於任何分頁。` : "這個分頁沒有 Epic。",
+      okText: "刪除分頁",
+      okButtonProps: { danger: true },
+      cancelText: "取消",
+      onOk: () => {
+        setSettings((current) => ({ ...current, sheets: current.sheets.filter((item) => item.id !== sheetId) }));
+        setEpics((current) => current.map((epic) => (epic.sheetId === sheetId ? { ...epic, sheetId: undefined } : epic)));
+        if (currentSheetId === sheetId) setActiveSheetId(ALL_SHEETS);
+      },
+    });
+  }
+
   function addEpic() {
     const baseEpic = blankEpic(epics.length + 1);
     const startDate = project.startDate;
@@ -1051,6 +1110,7 @@ export default function Home() {
       ...baseEpic,
       assignee: assigneeNames[0] ?? "Simon",
       category: activeEpicCategory,
+      sheetId: currentSheetId === ALL_SHEETS ? undefined : currentSheetId,
       department: settings.departments[0] ?? "PM",
       startDate,
       finishDate,
@@ -1195,7 +1255,9 @@ export default function Home() {
     if (!importPreview?.epics.length) {
       return;
     }
-    setEpics((current) => (importMode === "replace" ? importPreview.epics : [...current, ...importPreview.epics]).map(normalizeEpic));
+    const importedEpics =
+      currentSheetId === ALL_SHEETS ? importPreview.epics : importPreview.epics.map((epic) => ({ ...epic, sheetId: currentSheetId }));
+    setEpics((current) => (importMode === "replace" ? importedEpics : [...current, ...importedEpics]).map(normalizeEpic));
     closeImportModal();
   }
 
@@ -1424,6 +1486,50 @@ export default function Home() {
                   ]}
                   onChange={(key) => setActivePlannerView(key as PlannerView)}
                 />
+
+                <div className="sheet-tabs-row" aria-label="專案分頁">
+                  <Tabs
+                    activeKey={currentSheetId}
+                    className="sheet-tabs"
+                    hideAdd={false}
+                    items={[
+                      { key: ALL_SHEETS, label: `全部（${epics.length}）`, closable: false },
+                      ...settings.sheets.map((sheet) => ({
+                        key: sheet.id,
+                        closable: true,
+                        label: (
+                          <span
+                            title="雙擊重新命名"
+                            onDoubleClick={() => setSheetDialog({ mode: "rename", id: sheet.id, name: sheet.name })}
+                          >
+                            {sheet.name}（{epics.filter((epic) => epic.sheetId === sheet.id).length}）
+                          </span>
+                        ),
+                      })),
+                    ]}
+                    size="small"
+                    type="editable-card"
+                    onChange={setActiveSheetId}
+                    onEdit={(targetKey, action) => {
+                      if (action === "add") setSheetDialog({ mode: "add", name: "" });
+                      else if (typeof targetKey === "string") removeSheet(targetKey);
+                    }}
+                  />
+                  {currentSheetId !== ALL_SHEETS ? (
+                    <Button
+                      icon={<EditOutlined />}
+                      size="small"
+                      type="text"
+                      aria-label="重新命名分頁"
+                      onClick={() => {
+                        const sheet = settings.sheets.find((item) => item.id === currentSheetId);
+                        if (sheet) setSheetDialog({ mode: "rename", id: sheet.id, name: sheet.name });
+                      }}
+                    >
+                      重新命名
+                    </Button>
+                  ) : null}
+                </div>
 
                 {activePlannerView === "schedule" ? (
                   <section className="project-header" aria-label="專案資訊">
@@ -1986,6 +2092,23 @@ export default function Home() {
         </Layout>
 
       <Modal
+        cancelText="取消"
+        okButtonProps={{ disabled: !sheetDialog?.name.trim() }}
+        okText={sheetDialog?.mode === "add" ? "新增" : "儲存"}
+        open={Boolean(sheetDialog)}
+        title={sheetDialog?.mode === "add" ? "新增分頁" : "重新命名分頁"}
+        onCancel={() => setSheetDialog(null)}
+        onOk={saveSheetDialog}
+      >
+        <Input
+          aria-label="分頁名稱"
+          placeholder="例如：2026 上半年開發項目"
+          value={sheetDialog?.name ?? ""}
+          onChange={(event) => setSheetDialog((current) => (current ? { ...current, name: event.target.value } : current))}
+          onPressEnter={saveSheetDialog}
+        />
+      </Modal>
+      <Modal
         className="epic-modal"
         footer={null}
         onCancel={() => setEditingEpicId(null)}
@@ -2018,6 +2141,16 @@ export default function Home() {
                   options={epicCategorySelectOptions}
                   value={editingEpic.category}
                   onChange={(value) => updateEpic(editingEpic.id, { category: normalizeEpicCategory(value) })}
+                />
+              </Field>
+              <Field label="分頁">
+                <Select
+                  allowClear
+                  aria-label="Epic 分頁"
+                  options={settings.sheets.map((sheet) => ({ label: sheet.name, value: sheet.id }))}
+                  placeholder="不分頁"
+                  value={editingEpic.sheetId}
+                  onChange={(value) => updateEpic(editingEpic.id, { sheetId: value || undefined })}
                 />
               </Field>
               <Field label="Type">

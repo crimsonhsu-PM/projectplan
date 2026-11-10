@@ -20,6 +20,7 @@ export type Epic = Task & {
   priority: string;
   category: EpicCategory;
   starred?: boolean;
+  sheetId?: string;
   tasks: Task[];
 };
 
@@ -49,7 +50,13 @@ export type AgentOption = {
   department: string;
 };
 
+export type SheetOption = {
+  id: string;
+  name: string;
+};
+
 export type AppSettings = {
+  sheets: SheetOption[];
   departments: string[];
   agents: AgentOption[];
   holidays: HolidayRange[];

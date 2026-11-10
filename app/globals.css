@@ -366,6 +366,31 @@ select {
   padding-block: 17px;
 }
 
+.sheet-tabs-row {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  margin: -8px 0 16px;
+  min-width: 0;
+}
+
+.sheet-tabs {
+  flex: 1;
+  min-width: 0;
+}
+
+.sheet-tabs .ant-tabs-nav {
+  margin: 0;
+}
+
+.sheet-tabs .ant-tabs-tab {
+  font-weight: 700;
+}
+
+.sheet-tabs .ant-tabs-tab-active {
+  border-bottom-color: var(--white) !important;
+}
+
 .epic-filter-bar {
   align-items: center;
   background: var(--white);
