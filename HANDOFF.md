@@ -42,7 +42,7 @@ pnpm dev
 - 建置：`pnpm build:artifact`，輸出 `dist-artifact/`（`index.html`＋`assets/*`），由 Claude 以 artifact 檔案發佈。
 - 入口：`artifact/main.tsx` 直接渲染 `app/page.tsx`；`artifact/artifact-store.ts` 攔截 `/api/project-data` 的 GET／PUT，改存到 artifact 的 `db` 能力：`plan/meta`（project、settings、Epic 順序）與 `epics/<id>`（每個 Epic 一份文件，避免單文件超過 256 KiB）。只寫入有變動的文件。
 - 首次載入若 db 為空，會由同一 artifact 的 `seed.json` 搬入資料。資料檔放在 `artifact/public/`（不進 git，含專案資料）。
-- 一次性資料修正放 `artifact/public/migrations/<name>.json`（依 id 修改 title／rm），並在 `artifact-store.ts` 的 `MIGRATIONS` 登記；每個資料庫只套用一次，已套用的記在 `plan/meta.migrations`。
+- 一次性資料修正放 `artifact/public/migrations/<name>.json`（依 id 修改 title／rm），並在 `artifact-store.ts` 的 `MIGRATIONS` 登記；需要程式運算的修正放 `CODE_MIGRATIONS`（例：`auto-assign-v1` 用 `lib/auto-assign.ts` 依部門自動分派負責人，原值備份在 db 的 `backups/auto-assign-v1`）；每個資料庫只套用一次，已套用的記在 `plan/meta.migrations`。
 - 權限：db 規則為所有可開啟者可讀、Editor／Owner 才能寫。
 - 匯出：artifact 框架不能直接下載，`lib/save-file.ts` 改走 `downloads` 能力；其允許清單沒有 `.xls`，匯出檔會存成 `.html`（Excel 可開啟，匯入也接受 `.html`）。
 - Cloudflare／Sites 版的程式與 `pnpm build` 不受影響。

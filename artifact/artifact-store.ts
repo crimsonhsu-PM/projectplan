@@ -8,6 +8,7 @@
 //   epics/<docId>    { epic, order }        (one document per Epic; keeps each doc < 256 KiB)
 // A one-time migration seeds the db from ./seed.json when plan/meta does not exist yet.
 
+import { autoAssign } from "../lib/auto-assign";
 import type { Epic, StoredProjectData } from "../lib/planner-types";
 
 type Snap = { exists: boolean; id: string; data(): Record<string, unknown> | undefined };
@@ -31,7 +32,15 @@ let pending: StoredProjectData | null = null;
 let appliedMigrations: string[] = [];
 // One-off data migrations shipped as files next to index.html: { [itemId]: { title?, rm? } }.
 // Applied once per database, by id, so edits made in the tool are kept.
-const MIGRATIONS = ["games-v2"];
+// Code migrations run in order after the file ones; each returns a backup to keep in backups/<name>.
+const MIGRATIONS = ["games-v2", "auto-assign-v1"];
+const CODE_MIGRATIONS: Record<string, (data: StoredProjectData) => Record<string, unknown>> = {
+  "auto-assign-v1": (data) => {
+    const result = autoAssign(data.epics ?? [], data.settings?.agents ?? []);
+    data.epics = result.epics;
+    return { count: result.count, originalAssignee: result.changes };
+  },
+};
 
 function getDb(): Promise<DB | null> {
   if (!dbPromise) {
@@ -113,6 +122,21 @@ async function applyMigrations(db: DB, data: StoredProjectData) {
   const todo = MIGRATIONS.filter((name) => !appliedMigrations.includes(name));
   if (!todo.length) return data;
   for (const name of todo) {
+    const codeMigration = CODE_MIGRATIONS[name];
+    if (codeMigration) {
+      try {
+        const backup = codeMigration(data);
+        try {
+          await db.doc(`backups/${name}`).set({ ...backup, at: new Date().toISOString() });
+        } catch {
+          // viewer cannot write
+        }
+        appliedMigrations = [...appliedMigrations, name];
+      } catch {
+        // leave it for the next visit
+      }
+      continue;
+    }
     try {
       const response = await fetch(`./migrations/${name}.json`, { cache: "no-store" });
       if (!response.ok) continue;
