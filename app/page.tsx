@@ -941,9 +941,11 @@ export default function Home() {
   );
   const { start, end } = useMemo(() => getGanttRange(viewProject.startDate, visibleEpics), [viewProject.startDate, visibleEpics]);
   const days = useMemo(() => enumerateDays(start, end), [start, end]);
+  // 人員時程、測試排程的甘特圖預設從「兩週前的週一」開始，打開就看得到現在；可用起始日自行調整（不影響專案時程）
+  const [timelineStart, setTimelineStart] = useState(() => formatIso(addDays(new Date(`${getWeekStarts(todayIso, 1)[0]}T00:00:00`), -14)));
   const personnelRange = useMemo(
-    () => getGanttRange(viewProject.startDate, personnelEpics),
-    [personnelEpics, viewProject.startDate],
+    () => getGanttRange(timelineStart, personnelEpics),
+    [personnelEpics, timelineStart],
   );
   const personnelDays = useMemo(
     () => enumerateDays(personnelRange.start, personnelRange.end),
@@ -1879,9 +1881,9 @@ export default function Home() {
                   <TestMachineView
                     agents={settings.agents}
                     bookings={settings.testBookings}
-                    days={days}
+                    days={personnelDays}
                     epics={epics}
-                    ganttPanelStyle={ganttPanelStyle(days.length, ganttZoom)}
+                    ganttPanelStyle={ganttPanelStyle(personnelDays.length, ganttZoom)}
                     holidayDates={holidayDates}
                     machines={settings.testMachines}
                     todayIso={todayIso}
@@ -1915,8 +1917,8 @@ export default function Home() {
                           <Field label="甘特圖起始日">
                             <DatePicker
                               aria-label="測試機排程 甘特圖起始日"
-                              value={dayjs(viewProject.startDate)}
-                              onChange={(date) => date && updateViewProject({ startDate: date.format("YYYY-MM-DD") })}
+                              value={dayjs(timelineStart)}
+                              onChange={(date) => date && setTimelineStart(date.format("YYYY-MM-DD"))}
                               allowClear={false}
                               inputReadOnly
                             />
@@ -2000,8 +2002,8 @@ export default function Home() {
                         <Field label="甘特圖起始日">
                           <DatePicker
                             aria-label="人員時程 甘特圖起始日"
-                            value={dayjs(viewProject.startDate)}
-                            onChange={(date) => date && updateViewProject({ startDate: date.format("YYYY-MM-DD") })}
+                            value={dayjs(timelineStart)}
+                            onChange={(date) => date && setTimelineStart(date.format("YYYY-MM-DD"))}
                             suffixIcon={<CalendarOutlined />}
                             allowClear={false}
                             inputReadOnly
