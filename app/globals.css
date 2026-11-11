@@ -3354,3 +3354,8 @@ select {
     grid-template-columns: 32px var(--epic-main-width, 560px) 8px minmax(220px, 1fr);
   }
 }
+
+/* 專案名稱垂直置中，不跟右側欄位一起貼底 */
+.project-header > .project-title {
+  align-self: center;
+}
