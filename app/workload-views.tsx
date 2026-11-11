@@ -43,7 +43,6 @@ export function WorkloadOverview({
           <Button className="workload-name" size="small" type="link" onClick={() => onPick(person.name)}>
             {person.name}
           </Button>
-          {person.department ? <Tag>{person.department}</Tag> : null}
         </div>
       ),
       sorter: (a, b) => a.name.localeCompare(b.name),
