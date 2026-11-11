@@ -40,17 +40,17 @@ test("replaces data and reports malformed files", async ({ page }) => {
 test("falls back locally when loading fails", async ({ page }) => {
   const api = await mockProjectApi(page, projectDataFixture(), { failLoad: true });
   await page.goto("/");
-  await expect(page.getByText("使用本機備援").filter({ visible: true })).toBeVisible();
+  await expect(page.getByText("未連線，修改先存在本機").filter({ visible: true })).toBeVisible();
   await expect(page.getByLabel("專案名稱")).toHaveValue("2026下半開發項目");
   await page.getByLabel("專案名稱").fill("離線修改");
   // Observe beyond the 700 ms autosave delay: a failed GET must never trigger PUT.
   await page.waitForTimeout(1_000);
   expect(api.getPutCount()).toBe(0);
   expect(api.getData()?.project?.projectName).toBe("E2E 專案");
-  await expect(page.getByText("使用本機備援").filter({ visible: true })).toBeVisible();
+  await expect(page.getByText("未連線，修改先存在本機").filter({ visible: true })).toBeVisible();
   await page.reload();
   await expect(page.getByLabel("專案名稱")).toHaveValue("離線修改");
-  await expect(page.getByText("使用本機備援").filter({ visible: true })).toBeVisible();
+  await expect(page.getByText("未連線，修改先存在本機").filter({ visible: true })).toBeVisible();
 });
 
 test("shows save failure without losing the local edit", async ({ page }) => {

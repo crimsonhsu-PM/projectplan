@@ -16,6 +16,7 @@ import {
   Modal,
   Popover,
   Progress,
+  Segmented,
   Select,
   Space,
   Switch,
@@ -39,6 +40,7 @@ import {
   PlusOutlined,
   ProjectOutlined,
   RightOutlined,
+  SearchOutlined,
   SettingOutlined,
   StarFilled,
   StarOutlined,
@@ -46,6 +48,7 @@ import {
   UploadOutlined,
 } from "@ant-design/icons";
 import { saveFile } from "@/lib/save-file";
+import { isUnassigned } from "@/lib/auto-assign";
 import dayjs from "dayjs";
 import {
   addDays,
@@ -111,7 +114,7 @@ const syncStatusLabels: Record<SyncStatus, string> = {
   loading: "資料載入中",
   saving: "儲存中",
   saved: "已儲存",
-  offline: "使用本機備援",
+  offline: "未連線，修改先存在本機",
   error: "儲存失敗",
 };
 const STORAGE_KEY = "rsg-project-plan-v2";
@@ -128,12 +131,12 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 const taskColumnDefinitions = [
   { key: "wbs", label: "WBS", width: 48 },
-  { key: "task", label: "Task", width: 220 },
+  { key: "task", label: "工作項目", width: 220 },
   { key: "department", label: "部門", width: 92 },
   { key: "status", label: "狀態", width: 108 },
-  { key: "agent", label: "Agent", width: 108 },
-  { key: "start", label: "Start", width: 128 },
-  { key: "finish", label: "Finish", width: 128 },
+  { key: "agent", label: "負責人", width: 108 },
+  { key: "start", label: "開始", width: 128 },
+  { key: "finish", label: "結束", width: 128 },
   { key: "workdays", label: "工作天數", width: 72 },
 ] as const;
 
@@ -275,6 +278,115 @@ function downloadImportTemplate() {
 
 function downloadTextFile(fileName: string, content: string, type: string) {
   saveFile(fileName, new Blob([content], { type }));
+}
+
+type GanttZoom = "day" | "week" | "month";
+type QuickFilter = "all" | "overdue" | "unassigned";
+const GANTT_ZOOM_KEY = "project-plan-gantt-zoom-v1";
+const COMPACT_EPICS_KEY = "project-plan-compact-epics-v1";
+const GANTT_CELL: Record<GanttZoom, number> = { day: 34, week: 12, month: 4 };
+const DONE_STATUS = "完成";
+const COMPACT_EPIC_MAIN_WIDTH = 600;
+
+function readStored<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
+  try {
+    const value = typeof window === "undefined" ? null : window.localStorage.getItem(key);
+    return allowed.includes(value as T) ? (value as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeStored(key: string, value: string) {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // storage unavailable
+  }
+}
+
+function isTaskDone(task: Task) {
+  return task.progress >= 100 || task.type.trim() === DONE_STATUS;
+}
+
+// 結束日已過、還沒完成 → 逾期
+function isTaskOverdue(task: Task, todayIso: string) {
+  return !isTaskDone(task) && Boolean(task.finishDate) && task.finishDate < todayIso;
+}
+
+function ganttPanelStyle(dayCount: number, zoom: GanttZoom) {
+  const cell = GANTT_CELL[zoom];
+  return {
+    "--gantt-days": dayCount,
+    "--gantt-cell-size": `${cell}px`,
+    "--gantt-line": `${zoom === "day" ? cell : cell * 7}px`,
+  } as React.CSSProperties;
+}
+
+function GanttHeader({ days, zoom }: { days: Date[]; zoom: GanttZoom }) {
+  if (zoom === "month") {
+    const months: Array<{ key: string; label: string; start: number; span: number }> = [];
+    days.forEach((day, index) => {
+      const key = `${day.getFullYear()}-${day.getMonth()}`;
+      const last = months.at(-1);
+      if (last?.key === key) {
+        last.span += 1;
+      } else {
+        months.push({ key, label: `${day.getFullYear()}/${String(day.getMonth() + 1).padStart(2, "0")}`, start: index, span: 1 });
+      }
+    });
+    return (
+      <div className="gantt-week-header">
+        {months.map((month) => (
+          <span key={month.key} style={{ gridColumn: `${month.start + 1} / span ${month.span}` }} title={month.label}>
+            {month.span >= 8 ? month.label : ""}
+          </span>
+        ))}
+      </div>
+    );
+  }
+  const weeks: Date[][] = [];
+  for (let index = 0; index < days.length; index += 7) {
+    weeks.push(days.slice(index, index + 7));
+  }
+  return (
+    <>
+      <div className="gantt-week-header">
+        {weeks.map((week, index) => (
+          <span key={week[0].toISOString()} style={{ gridColumn: `${index * 7 + 1} / span ${week.length}` }}>
+            WK {index + 1}
+            <small>{dayLabel(week[0])}</small>
+          </span>
+        ))}
+      </div>
+      {zoom === "day" ? (
+        <>
+          <div className="gantt-date-header">
+            {days.map((day) => (
+              <span key={day.toISOString()}>{dayLabel(day)}</span>
+            ))}
+          </div>
+          <div className="gantt-weekday-header">
+            {days.map((day) => (
+              <span key={day.toISOString()}>{weekday(day)}</span>
+            ))}
+          </div>
+        </>
+      ) : null}
+    </>
+  );
+}
+
+function TodayLine({ days, todayIso }: { days: Date[]; todayIso: string }) {
+  const index = days.findIndex((day) => formatIso(day) === todayIso);
+  if (index < 0) return null;
+  return (
+    <span
+      aria-hidden="true"
+      className="gantt-today-line"
+      style={{ left: `calc(var(--gantt-cell) * ${index} + var(--gantt-cell) / 2)` }}
+    />
+  );
 }
 
 function getGanttRange(projectStartDate: string, epics: Epic[]) {
@@ -442,6 +554,11 @@ export default function Home() {
       return ALL_SHEETS;
     }
   });
+  const [ganttZoom, setGanttZoomState] = useState<GanttZoom>(() => readStored(GANTT_ZOOM_KEY, ["day", "week", "month"] as const, "day"));
+  const [compactEpics, setCompactEpicsState] = useState<boolean>(() => readStored(COMPACT_EPICS_KEY, ["1", "0"] as const, "0") === "1");
+  const [searchText, setSearchText] = useState("");
+  const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
+  const todayIso = formatIso(new Date());
   const [sheetDialog, setSheetDialog] = useState<{ mode: "add" | "rename"; id?: string; name: string } | null>(null);
   const [visiblePersonnelCategories, setVisiblePersonnelCategories] = useState<EpicCategory[]>(
     () => [...epicCategoryOptions],
@@ -666,17 +783,23 @@ export default function Home() {
         }
         const hasDepartmentFilter = Boolean(departmentFilter && departmentFilter !== ALL_FILTER_VALUE);
         const hasAgentFilter = Boolean(agentFilter && agentFilter !== ALL_FILTER_VALUE);
-        if (!hasDepartmentFilter && !hasAgentFilter) {
+        const keyword = searchText.trim().toLowerCase();
+        if (!hasDepartmentFilter && !hasAgentFilter && quickFilter === "all" && !keyword) {
           return [epic];
         }
+        const epicMatchesKeyword = Boolean(keyword) && `${epic.wbs} ${epic.title}`.toLowerCase().includes(keyword);
         const tasks = epic.tasks.filter(
           (task) =>
             (!hasDepartmentFilter || task.department.trim() === departmentFilter) &&
-            (!hasAgentFilter || task.assignee.trim() === agentFilter),
+            (!hasAgentFilter || task.assignee.trim() === agentFilter) &&
+            (quickFilter !== "overdue" || isTaskOverdue(task, todayIso)) &&
+            (quickFilter !== "unassigned" || isUnassigned(task.assignee)) &&
+            (!keyword || epicMatchesKeyword || `${task.wbs} ${task.title}`.toLowerCase().includes(keyword)),
         );
-        return tasks.length ? [{ ...epic, tasks }] : [];
+        const keepEmptyEpic = epicMatchesKeyword && !hasDepartmentFilter && !hasAgentFilter && quickFilter === "all";
+        return tasks.length || keepEmptyEpic ? [{ ...epic, tasks }] : [];
       }),
-    [agentFilter, currentSheet, departmentFilter, epics, settings.sheets],
+    [agentFilter, currentSheet, departmentFilter, epics, quickFilter, searchText, settings.sheets, todayIso],
   );
   const projectFilteredEpics = useMemo(
     () =>
@@ -726,9 +849,15 @@ export default function Home() {
     },
     [holidayDates, personnelEpics, showCompletedProjects],
   );
+  // 精簡欄位時只留 WBS、工作項目、狀態、負責人，讓甘特圖有更多寬度。
+  const shownTaskColumns = useMemo(() => {
+    if (!compactEpics) return visibleTaskColumns;
+    const compact = new Set<TaskColumnKey>(["wbs", "task", "status", "agent"]);
+    return new Set(Array.from(visibleTaskColumns).filter((key) => compact.has(key)));
+  }, [compactEpics, visibleTaskColumns]);
   const visibleTaskColumnDefinitions = useMemo(
-    () => taskColumnDefinitions.filter((column) => visibleTaskColumns.has(column.key)),
-    [visibleTaskColumns],
+    () => taskColumnDefinitions.filter((column) => shownTaskColumns.has(column.key)),
+    [shownTaskColumns],
   );
   const tableRows = useMemo<PlannerTableRow[]>(
     () =>
@@ -773,13 +902,6 @@ export default function Home() {
     [personnelRange],
   );
   const weeks = useMemo(() => days.filter((day) => day.getDay() === 1), [days]);
-  const ganttWeeks = useMemo(() => {
-    const segments: Date[][] = [];
-    for (let index = 0; index < days.length; index += 7) {
-      segments.push(days.slice(index, index + 7));
-    }
-    return segments;
-  }, [days]);
   const tableWidths = useMemo(() => {
     const rowsWithItems = tableRows.filter((row) => row.item);
     const textRows = tableRows.map((row) => row.item);
@@ -1081,6 +1203,26 @@ export default function Home() {
     setTaskDropTarget({ epicId, taskId, position });
   }
 
+  function setGanttZoom(zoom: GanttZoom) {
+    setGanttZoomState(zoom);
+    writeStored(GANTT_ZOOM_KEY, zoom);
+  }
+
+  function setCompactEpics(value: boolean) {
+    setCompactEpicsState(value);
+    writeStored(COMPACT_EPICS_KEY, value ? "1" : "0");
+  }
+
+  function scrollGanttToToday() {
+    const panels = document.querySelectorAll<HTMLElement>(".epic-gantt-panel, .task-gantt-panel, .people-schedule-gantt");
+    panels.forEach((panel) => {
+      const line = panel.querySelector<HTMLElement>(".gantt-today-line");
+      if (line) {
+        panel.scrollLeft = Math.max(0, line.offsetLeft - 120);
+      }
+    });
+  }
+
   function setActiveSheetId(id: string) {
     setActiveSheetIdState(id);
     try {
@@ -1348,7 +1490,7 @@ export default function Home() {
     return (
       <div className={`gantt-board-row ${rowClassName}`} key={`${item.id}-gantt`}>
         <span
-          className="gantt-board-bar"
+          className={`gantt-board-bar ${isTaskOverdue(item, todayIso) ? "gantt-board-bar-overdue" : ""}`}
           style={
             {
               gridColumn: `${columnStart} / span ${span}`,
@@ -1566,7 +1708,7 @@ export default function Home() {
                       onChange={(event) => updateViewProject({ projectName: event.target.value })}
                     />
                   </div>
-                  <Field label="Start date">
+                  <Field label="甘特圖起始日">
                     <DatePicker
                       value={dayjs(viewProject.startDate)}
                       onChange={(date) => date && updateViewProject({ startDate: date.format("YYYY-MM-DD") })}
@@ -1620,9 +1762,9 @@ export default function Home() {
                         </span>
                       </div>
                       <div className="people-start-date">
-                        <Field label="Start date">
+                        <Field label="甘特圖起始日">
                           <DatePicker
-                            aria-label="人員時程 Start date"
+                            aria-label="人員時程 甘特圖起始日"
                             value={dayjs(viewProject.startDate)}
                             onChange={(date) => date && updateViewProject({ startDate: date.format("YYYY-MM-DD") })}
                             suffixIcon={<CalendarOutlined />}
@@ -1708,6 +1850,50 @@ export default function Home() {
                       <span>顯示完成度 100% 專案</span>
                     </label>
                   </div>
+                  <div className="epic-toolbar">
+                    <Input
+                      allowClear
+                      aria-label="搜尋 Epic 或工作項目"
+                      className="epic-search"
+                      placeholder="搜尋 Epic／工作項目"
+                      prefix={<SearchOutlined />}
+                      value={searchText}
+                      onChange={(event) => setSearchText(event.target.value)}
+                    />
+                    <Segmented
+                      aria-label="快速篩選"
+                      options={[
+                        { label: "全部", value: "all" },
+                        { label: "只看逾期", value: "overdue" },
+                        { label: "只看未指派", value: "unassigned" },
+                      ]}
+                      value={quickFilter}
+                      onChange={(value) => setQuickFilter(value as QuickFilter)}
+                    />
+                    {activePlannerView !== "manpower" ? (
+                      <>
+                        <Segmented
+                          aria-label="甘特圖縮放"
+                          options={[
+                            { label: "日", value: "day" },
+                            { label: "週", value: "week" },
+                            { label: "月", value: "month" },
+                          ]}
+                          value={ganttZoom}
+                          onChange={(value) => setGanttZoom(value as GanttZoom)}
+                        />
+                        <Button icon={<CalendarOutlined />} onClick={scrollGanttToToday}>
+                          今天
+                        </Button>
+                      </>
+                    ) : null}
+                    {activePlannerView === "schedule" ? (
+                      <label className="completed-project-toggle">
+                        <Switch aria-label="精簡欄位" checked={compactEpics} onChange={setCompactEpics} />
+                        <span>精簡欄位，甘特圖放大</span>
+                      </label>
+                    ) : null}
+                  </div>
                 </div>
 
                 {activePlannerView === "schedule" ? (
@@ -1717,9 +1903,9 @@ export default function Home() {
                       const isCollapsed = collapsedEpicIds.has(epic.id);
                       return (
                         <article
-                          className={`epic-card ${draggingEpicId === epic.id ? "epic-card-dragging" : ""}`}
+                          className={`epic-card ${compactEpics ? "epic-card-compact" : ""} ${draggingEpicId === epic.id ? "epic-card-dragging" : ""}`}
                           key={epic.id}
-                          style={{ "--epic-main-width": `${epicMainWidth}px` } as React.CSSProperties}
+                          style={{ "--epic-main-width": `${compactEpics ? COMPACT_EPIC_MAIN_WIDTH : epicMainWidth}px` } as React.CSSProperties}
                           onMouseLeave={() => setGanttHoverLine((current) => (current?.epicId === epic.id ? null : current))}
                           onDragOver={(event) => {
                             if (draggingEpicId) {
@@ -1801,6 +1987,16 @@ export default function Home() {
                               <Button type="link" className="epic-title-button" icon={<EditOutlined />} onClick={() => setEditingEpicId(epic.id)}>
                                 {epic.title}
                               </Button>
+                              {(() => {
+                                const overdue = epic.tasks.filter((task) => isTaskOverdue(task, todayIso)).length;
+                                const unassigned = epic.tasks.filter((task) => !isTaskDone(task) && isUnassigned(task.assignee)).length;
+                                return (
+                                  <>
+                                    {overdue ? <Tag className="epic-alert-tag" color="red">逾期 {overdue}</Tag> : null}
+                                    {unassigned ? <Tag className="epic-alert-tag" color="gold">未指派 {unassigned}</Tag> : null}
+                                  </>
+                                );
+                              })()}
                               <div className="epic-title-progress" aria-label={`完成度 ${epic.progress}%`}>
                                 <span>完成度</span>
                                 <Progress percent={epic.progress} size="small" />
@@ -1816,7 +2012,7 @@ export default function Home() {
                                   onChange={(value) => updateEpic(epic.id, { category: normalizeEpicCategory(value) })}
                                 />
                               </Field>
-                              <Field label="Type">
+                              <Field label="類型">
                                 <Select
                                   className="colored-select"
                                   options={typeSelectOptions}
@@ -1825,14 +2021,14 @@ export default function Home() {
                                   onChange={(value) => updateEpic(epic.id, { type: value })}
                                 />
                               </Field>
-                              <Field label="Agent">
+                              <Field label="負責人">
                                 <Select
                                   options={assigneeSelectOptions}
                                   value={epic.assignee}
                                   onChange={(value) => updateEpic(epic.id, { assignee: value })}
                                 />
                               </Field>
-                              <Field label="Start / Finish">
+                              <Field label="開始／結束">
                                 <DatePicker.RangePicker
                                   allowClear={false}
                                   className="epic-range-field"
@@ -1865,31 +2061,12 @@ export default function Home() {
                             data-gantt-group={epic.id}
                             onMouseMove={(event) => updateGanttHoverLine(epic.id, event)}
                             onScroll={(event) => syncGanttScroll(epic.id, event.currentTarget)}
-                            style={
-                              {
-                                "--gantt-days": days.length,
-                              } as React.CSSProperties
-                            }
+                            style={ganttPanelStyle(days.length, ganttZoom)}
                           >
                             <div className="gantt-scroll">
-                              <div className="gantt-week-header">
-                                {ganttWeeks.map((week, index) => (
-                                  <span key={week[0].toISOString()} style={{ gridColumn: `${index * 7 + 1} / span ${week.length}` }}>
-                                    WK {index + 1}
-                                  </span>
-                                ))}
-                              </div>
-                              <div className="gantt-date-header">
-                                {days.map((day) => (
-                                  <span key={day.toISOString()}>{dayLabel(day)}</span>
-                                ))}
-                              </div>
-                              <div className="gantt-weekday-header">
-                                {days.map((day) => (
-                                  <span key={day.toISOString()}>{weekday(day)}</span>
-                                ))}
-                              </div>
+                              <GanttHeader days={days} zoom={ganttZoom} />
                               {renderGanttRow(epic, "epic-gantt-row")}
+                              <TodayLine days={days} todayIso={todayIso} />
                             </div>
                           </div>
 
@@ -1897,7 +2074,7 @@ export default function Home() {
                             <>
                             <div className="task-list">
                               <div className="task-list-header">
-                                <span>Tasks</span>
+                                <span>工作項目</span>
                                 <Space size={8}>
                                   <Dropdown
                                     trigger={["click"]}
@@ -1938,7 +2115,7 @@ export default function Home() {
                                 const isTaskDropTarget = taskDropTarget?.epicId === epic.id && taskDropTarget.taskId === task.id;
                                 return (
                                   <div
-                                    className={`task-item ${isDraggingTask ? "task-item-dragging" : ""} ${
+                                    className={`task-item ${isTaskOverdue(task, todayIso) ? "task-item-overdue" : ""} ${isDraggingTask ? "task-item-dragging" : ""} ${
                                       isTaskDropTarget ? `task-item-drop-${taskDropTarget.position}` : ""
                                     }`}
                                     data-testid={`task-${task.id}`}
@@ -1977,12 +2154,12 @@ export default function Home() {
                                     >
                                       <HolderOutlined />
                                     </button>
-                                    {visibleTaskColumns.has("wbs") ? (
+                                    {shownTaskColumns.has("wbs") ? (
                                       <span className="task-wbs">
                                         {task.wbs}
                                       </span>
                                     ) : null}
-                                    {visibleTaskColumns.has("task") ? (
+                                    {shownTaskColumns.has("task") ? (
                                       <Input
                                         aria-label={`${task.wbs} 任務名稱`}
                                         className="task-title-input"
@@ -1991,7 +2168,7 @@ export default function Home() {
                                         onChange={(event) => updateTask(epic.id, task.id, { title: event.target.value })}
                                       />
                                     ) : null}
-                                    {visibleTaskColumns.has("department") ? (
+                                    {shownTaskColumns.has("department") ? (
                                       <Select
                                         className="task-field"
                                         options={departmentSelectOptions}
@@ -1999,7 +2176,7 @@ export default function Home() {
                                         onChange={(value) => updateTask(epic.id, task.id, { department: value })}
                                       />
                                     ) : null}
-                                    {visibleTaskColumns.has("status") ? (
+                                    {shownTaskColumns.has("status") ? (
                                       <Select
                                         className="task-field colored-select"
                                         options={statusSelectOptions}
@@ -2012,7 +2189,7 @@ export default function Home() {
                                         onChange={(value) => updateTask(epic.id, task.id, { type: value })}
                                       />
                                     ) : null}
-                                    {visibleTaskColumns.has("agent") ? (
+                                    {shownTaskColumns.has("agent") ? (
                                       <Select
                                         className="task-field"
                                         options={assigneeSelectOptions}
@@ -2020,7 +2197,7 @@ export default function Home() {
                                         onChange={(value) => updateTask(epic.id, task.id, { assignee: value })}
                                       />
                                     ) : null}
-                                    {visibleTaskColumns.has("start") && visibleTaskColumns.has("finish") ? (
+                                    {shownTaskColumns.has("start") && shownTaskColumns.has("finish") ? (
                                       <DatePicker.RangePicker
                                         allowClear={false}
                                         className="task-range-field"
@@ -2040,7 +2217,7 @@ export default function Home() {
                                       />
                                     ) : (
                                       <>
-                                        {visibleTaskColumns.has("start") ? (
+                                        {shownTaskColumns.has("start") ? (
                                           <DatePicker
                                             allowClear={false}
                                             className="task-date-field"
@@ -2052,7 +2229,7 @@ export default function Home() {
                                             }
                                           />
                                         ) : null}
-                                        {visibleTaskColumns.has("finish") ? (
+                                        {shownTaskColumns.has("finish") ? (
                                           <DatePicker
                                             allowClear={false}
                                             className="task-date-field"
@@ -2066,7 +2243,7 @@ export default function Home() {
                                         ) : null}
                                       </>
                                     )}
-                                    {visibleTaskColumns.has("workdays") ? (
+                                    {shownTaskColumns.has("workdays") ? (
                                       <span className="task-workdays">
                                         {getWorkdayDuration(task.startDate, task.finishDate, holidayDates)}
                                       </span>
@@ -2081,14 +2258,13 @@ export default function Home() {
                               data-gantt-group={epic.id}
                               onMouseMove={(event) => updateGanttHoverLine(epic.id, event)}
                               onScroll={(event) => syncGanttScroll(epic.id, event.currentTarget)}
-                              style={
-                                {
-                                  "--gantt-days": days.length,
-                                } as React.CSSProperties
-                              }
+                              style={ganttPanelStyle(days.length, ganttZoom)}
                             >
                               <div className="task-gantt-offset" />
-                              <div className="gantt-scroll task-gantt-rows">{epic.tasks.map((task) => renderGanttRow(task))}</div>
+                              <div className="gantt-scroll task-gantt-rows">
+                                {epic.tasks.map((task) => renderGanttRow(task))}
+                                <TodayLine days={days} todayIso={todayIso} />
+                              </div>
                             </div>
                             </>
                           ) : null}
@@ -2100,7 +2276,7 @@ export default function Home() {
                 ) : activePlannerView === "manpower" ? (
                   <ProjectManpowerView summaries={manpowerSummaries} />
                 ) : (
-                  <PersonnelScheduleView days={personnelDays} summaries={personnelScheduleSummaries} />
+                  <PersonnelScheduleView days={personnelDays} summaries={personnelScheduleSummaries} todayIso={todayIso} zoom={ganttZoom} />
                 )}
               </>
             ) : (
@@ -2205,7 +2381,7 @@ export default function Home() {
                   onChange={(value) => updateEpic(editingEpic.id, { sheetId: value || undefined })}
                 />
               </Field>
-              <Field label="Type">
+              <Field label="類型">
                 <Select
                   className="colored-select"
                   options={typeSelectOptions}
@@ -2214,14 +2390,14 @@ export default function Home() {
                   onChange={(value) => updateEpic(editingEpic.id, { type: value })}
                 />
               </Field>
-              <Field label="Assignee">
+              <Field label="負責人">
                 <Select
                   options={assigneeSelectOptions}
                   value={editingEpic.assignee}
                   onChange={(value) => updateEpic(editingEpic.id, { assignee: value })}
                 />
               </Field>
-              <Field label="Start / Finish">
+              <Field label="開始／結束">
                 <DatePicker.RangePicker
                   allowClear={false}
                   className="epic-range-field"
@@ -2397,15 +2573,15 @@ export default function Home() {
 function PersonnelScheduleView({
   days,
   summaries,
+  zoom,
+  todayIso,
 }: {
   days: Date[];
   summaries: PersonnelScheduleSummary[];
+  zoom: GanttZoom;
+  todayIso: string;
 }) {
   const rangeStart = days[0]?.getTime() ?? 0;
-  const ganttWeeks: Date[][] = [];
-  for (let index = 0; index < days.length; index += 7) {
-    ganttWeeks.push(days.slice(index, index + 7));
-  }
 
   function projectBarStyle(project: PersonnelProjectSummary) {
     const itemStart = new Date(`${project.startDate}T00:00:00`);
@@ -2509,25 +2685,10 @@ function PersonnelScheduleView({
           <div className="people-schedule-gantt-panel">
             <div
               className="gantt-scroll people-schedule-gantt"
-              style={{ "--gantt-days": days.length } as React.CSSProperties}
+              style={ganttPanelStyle(days.length, zoom)}
             >
-              <div className="gantt-week-header">
-                {ganttWeeks.map((week, index) => (
-                  <span key={week[0].toISOString()} style={{ gridColumn: `${index * 7 + 1} / span ${week.length}` }}>
-                    WK {index + 1}
-                  </span>
-                ))}
-              </div>
-              <div className="gantt-date-header">
-                {days.map((day) => (
-                  <span key={day.toISOString()}>{dayLabel(day)}</span>
-                ))}
-              </div>
-              <div className="gantt-weekday-header">
-                {days.map((day) => (
-                  <span key={day.toISOString()}>{weekday(day)}</span>
-                ))}
-              </div>
+              <GanttHeader days={days} zoom={zoom} />
+              <TodayLine days={days} todayIso={todayIso} />
               <div className="people-schedule-gantt-rows">
                 {person.projects.map((project) => (
                   <div className="gantt-board-row" key={`${project.key}-gantt`}>
