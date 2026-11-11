@@ -22,6 +22,7 @@ import {
   Switch,
   Table,
   Tag,
+  Tooltip,
   Tabs,
   Typography,
 } from "antd";
@@ -49,6 +50,8 @@ import {
 } from "@ant-design/icons";
 import { saveFile } from "@/lib/save-file";
 import { isUnassigned } from "@/lib/auto-assign";
+import { buildDepartmentCapacity, buildWorkloads, countConcurrent, weekStarts as getWeekStarts } from "@/lib/workload";
+import { DepartmentCapacityStrip, WorkloadOverview } from "./workload-views";
 import dayjs from "dayjs";
 import {
   addDays,
@@ -816,6 +819,20 @@ export default function Home() {
     [activeEpicCategory, projectFilteredEpics],
   );
   const holidayDates = useMemo(() => getHolidayDateSet(settings.holidays), [settings.holidays]);
+  // 負載看的是一個人「全部」的工作，不受分頁與機台／線上影響；只依部門、人員篩選顯示哪些人。
+  const workloadWeekStarts = useMemo(() => getWeekStarts(todayIso, 8), [todayIso]);
+  const workloads = useMemo(() => {
+    const all = buildWorkloads(epics, settings.agents, holidayDates, todayIso, 8);
+    return all.filter(
+      (person) =>
+        (!departmentFilter || departmentFilter === ALL_FILTER_VALUE || person.department === departmentFilter) &&
+        (!agentFilter || agentFilter === ALL_FILTER_VALUE || person.name === agentFilter),
+    );
+  }, [agentFilter, departmentFilter, epics, holidayDates, settings.agents, todayIso]);
+  const departmentCapacities = useMemo(
+    () => buildDepartmentCapacity(epics, settings.agents, holidayDates, todayIso, 4),
+    [epics, holidayDates, settings.agents, todayIso],
+  );
   const manpowerSummaries = useMemo(
     () => visibleEpics.map((epic) => buildProjectManpowerSummary(epic, holidayDates)),
     [holidayDates, visibleEpics],
@@ -1738,7 +1755,7 @@ export default function Home() {
                     <div>
                       <Typography.Title level={3}>專案人力</Typography.Title>
                       <Typography.Text type="secondary">
-                        以 EPIC 為專案彙總部門與 Agent；投入工作天依 Task 有效工作天數計算。
+                        以 Epic 彙總各部門與負責人投入的工作天（已扣除週末與假日）。
                       </Typography.Text>
                     </div>
                     <div className="manpower-header-summary">
@@ -1751,7 +1768,7 @@ export default function Home() {
                     <div>
                       <Typography.Title level={3}>人員時程</Typography.Title>
                       <Typography.Text type="secondary">
-                        以 Agent 為主要維度；每個專案期間取該人員負責 Tasks 的最早開始日與最晚結束日。
+                        上方人員總表看誰有空；下方甘特圖看每個人在各專案的期間。
                       </Typography.Text>
                     </div>
                     <div className="people-header-actions">
@@ -2193,6 +2210,17 @@ export default function Home() {
                                       <Select
                                         className="task-field"
                                         options={assigneeSelectOptions}
+                                        popupMatchSelectWidth={false}
+                                        optionRender={(option) => {
+                                          const name = String(option.value ?? "");
+                                          const count = countConcurrent(epics, name, task.startDate, task.finishDate, task.id);
+                                          return (
+                                            <span className="assignee-option">
+                                              <span>{option.label}</span>
+                                              <small className={count >= 2 ? "assignee-busy" : ""}>{count ? `同期 ${count} 件` : "有空"}</small>
+                                            </span>
+                                          );
+                                        }}
                                         value={task.assignee}
                                         onChange={(value) => updateTask(epic.id, task.id, { assignee: value })}
                                       />
@@ -2274,9 +2302,27 @@ export default function Home() {
                   </div>
                   </section>
                 ) : activePlannerView === "manpower" ? (
-                  <ProjectManpowerView summaries={manpowerSummaries} />
+                  <>
+                    <DepartmentCapacityStrip capacities={departmentCapacities} weeks={4} />
+                    <ProjectManpowerView
+                      summaries={manpowerSummaries}
+                      todayIso={todayIso}
+                      onPickPerson={(name) => {
+                        setAgentFilter(name);
+                        setActivePlannerView("people");
+                      }}
+                    />
+                  </>
                 ) : (
-                  <PersonnelScheduleView days={personnelDays} summaries={personnelScheduleSummaries} todayIso={todayIso} zoom={ganttZoom} />
+                  <>
+                    <WorkloadOverview
+                      onPick={(name) => setAgentFilter(name)}
+                      todayIso={todayIso}
+                      weekStarts={workloadWeekStarts}
+                      workloads={workloads}
+                    />
+                    <PersonnelScheduleView days={personnelDays} summaries={personnelScheduleSummaries} todayIso={todayIso} zoom={ganttZoom} />
+                  </>
                 )}
               </>
             ) : (
@@ -2708,7 +2754,43 @@ function PersonnelScheduleView({
   );
 }
 
-function ProjectManpowerView({ summaries }: { summaries: ProjectManpowerSummary[] }) {
+const DEPARTMENT_COLORS = ["#0d5bff", "#16a34a", "#f59e0b", "#7c3aed", "#0891b2", "#db2777", "#65a30d", "#ea580c", "#64748b"];
+
+function manpowerProgress(item: ProjectManpowerSummary, todayIso: string) {
+  let done = 0;
+  let open = 0;
+  let overdue = 0;
+  for (const department of item.departments) {
+    for (const agent of department.agents) {
+      for (const task of agent.tasks) {
+        if (task.completed) done += task.workdays;
+        else {
+          open += task.workdays;
+          if (task.finishDate < todayIso) overdue += 1;
+        }
+      }
+    }
+  }
+  const total = done + open;
+  const donePercent = total ? Math.round((done / total) * 100) : 0;
+  const start = new Date(`${item.startDate}T00:00:00`).getTime();
+  const finish = new Date(`${item.finishDate}T00:00:00`).getTime();
+  const now = new Date(`${todayIso}T00:00:00`).getTime();
+  const timePercent = finish > start ? Math.round(Math.min(1, Math.max(0, (now - start) / (finish - start))) * 100) : 0;
+  return { done, open, overdue, donePercent, timePercent };
+}
+
+function ProjectManpowerView({
+  summaries,
+  todayIso,
+  onPickPerson,
+}: {
+  summaries: ProjectManpowerSummary[];
+  todayIso: string;
+  onPickPerson: (name: string) => void;
+}) {
+  const allDepartments = Array.from(new Set(summaries.flatMap((item) => item.departments.map((department) => department.name))));
+  const colorOf = (name: string) => DEPARTMENT_COLORS[allDepartments.indexOf(name) % DEPARTMENT_COLORS.length];
   const columns: TableProps<ProjectManpowerSummary>["columns"] = [
     {
       title: "專案",
@@ -2726,7 +2808,7 @@ function ProjectManpowerView({ summaries }: { summaries: ProjectManpowerSummary[
       ),
     },
     {
-      title: "Task 期間",
+      title: "期間",
       key: "period",
       width: 170,
       render: (_, item) =>
@@ -2741,31 +2823,81 @@ function ProjectManpowerView({ summaries }: { summaries: ProjectManpowerSummary[
         ),
     },
     {
-      title: "投入部門",
+      title: "投入部門（工作天）",
       key: "departments",
-      width: 130,
+      width: 190,
       render: (_, item) => (
-        <Space size={[4, 6]} wrap>
-          {item.departments.map((department) => (
-            <Tag key={department.key}>{department.name}</Tag>
-          ))}
-        </Space>
+        <div className="manpower-department-bar">
+          <div className="manpower-stack" aria-hidden="true">
+            {item.departments.map((department) => (
+              <span
+                key={department.key}
+                style={{ background: colorOf(department.name), flexGrow: Math.max(department.workdays, 0.5) }}
+                title={`${department.name} ${department.workdays} 天`}
+              />
+            ))}
+          </div>
+          <div className="manpower-department-legend">
+            {item.departments.map((department) => (
+              <span key={department.key}>
+                <i style={{ background: colorOf(department.name) }} />
+                {department.name} {department.workdays}
+              </span>
+            ))}
+          </div>
+        </div>
       ),
     },
     {
       title: "人力",
-      dataIndex: "peopleCount",
       key: "peopleCount",
-      align: "right",
-      width: 65,
-      render: (value: number) => `${value} 人`,
+      width: 130,
+      render: (_, item) => {
+        const people = item.departments
+          .flatMap((department) => department.agents)
+          .filter((agent) => agent.name !== "未指派")
+          .sort((left, right) => right.workdays - left.workdays);
+        return (
+          <div className="manpower-people">
+            <span>{item.peopleCount} 人</span>
+            <span className="manpower-top-people">
+              {people.slice(0, 2).map((agent) => (
+                <Button key={agent.key} size="small" type="link" onClick={() => onPickPerson(agent.name)}>
+                  {agent.name}
+                </Button>
+              ))}
+            </span>
+          </div>
+        );
+      },
     },
     {
-      title: "Tasks",
+      title: "進度",
+      key: "progress",
+      width: 130,
+      render: (_, item) => {
+        const progress = manpowerProgress(item, todayIso);
+        const behind = progress.timePercent - progress.donePercent >= 20;
+        return (
+          <Tooltip title={`工作完成 ${progress.donePercent}%（依工作天）／時間已過 ${progress.timePercent}%`}>
+            <div className="manpower-progress">
+              <span>完成 {progress.donePercent}%</span>
+              <span className="manpower-progress-bar">
+                <span style={{ width: `${progress.donePercent}%` }} />
+                <i style={{ left: `${progress.timePercent}%` }} />
+              </span>
+              {behind ? <Tag color="gold">落後</Tag> : null}
+            </div>
+          </Tooltip>
+        );
+      },
+    },
+    {
+      title: "工作項目",
       dataIndex: "taskCount",
       key: "taskCount",
       align: "right",
-      width: 65,
+      width: 90,
       render: (value: number) => `${value} 項`,
     },
     {
@@ -2774,7 +2906,18 @@ function ProjectManpowerView({ summaries }: { summaries: ProjectManpowerSummary[
       key: "workdays",
       align: "right",
       width: 105,
-      render: (value: number) => <strong className="manpower-workdays">{value.toLocaleString()} 天</strong>,
+      render: (value: number, item) => {
+        const progress = manpowerProgress(item, todayIso);
+        return (
+          <div className="manpower-workdays-cell">
+            <strong className="manpower-workdays">{value.toLocaleString()} 天</strong>
+            <small>
+              已完成 {progress.done}｜剩 {progress.open}
+            </small>
+            {progress.overdue ? <small className="workload-overdue">逾期 {progress.overdue} 件</small> : null}
+          </div>
+        );
+      },
     },
   ];
 
@@ -2790,7 +2933,7 @@ function ProjectManpowerView({ summaries }: { summaries: ProjectManpowerSummary[
           rowExpandable: (item) => item.departments.length > 0,
           expandedRowRender: (item) => <ProjectManpowerDetails departments={item.departments} />,
         }}
-        scroll={{ x: 760 }}
+        scroll={{ x: 1040 }}
         tableLayout="fixed"
       />
     </section>

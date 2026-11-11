@@ -2447,3 +2447,309 @@ select {
   border-top: 1px solid #edf0f7;
   padding: 12px 0 14px;
 }
+
+/* 人員總表 */
+.workload-overview {
+  background: var(--white);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  margin-bottom: 24px;
+  padding: 18px 22px 8px;
+}
+
+.workload-heading {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.workload-heading h4.ant-typography {
+  margin: 0;
+}
+
+.workload-legend {
+  align-items: center;
+  color: #667085;
+  display: flex;
+  font-size: 12px;
+  gap: 6px;
+}
+
+.workload-legend .workload-cell {
+  height: 20px;
+  width: 28px;
+}
+
+.workload-week-labels {
+  margin-left: 8px;
+}
+
+.workload-person {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+}
+
+.workload-name {
+  font-weight: 700;
+  padding-inline: 0;
+}
+
+.workload-heat {
+  display: grid;
+  gap: 4px;
+}
+
+.workload-cell {
+  align-items: center;
+  border-radius: 4px;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 700;
+  height: 24px;
+  justify-content: center;
+}
+
+.workload-level-0 {
+  background: #f2f4f7;
+}
+
+.workload-level-1 {
+  background: #dbe8ff;
+  color: #0d5bff;
+}
+
+.workload-level-2 {
+  background: #6f9bff;
+  color: #ffffff;
+}
+
+.workload-level-3 {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.workload-overdue {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.workload-muted {
+  color: #98a2b3;
+}
+
+.workload-free {
+  color: #16a34a;
+  font-weight: 700;
+}
+
+.workload-task-list {
+  display: grid;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 8px;
+}
+
+.workload-task-list li {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 110px minmax(160px, 1fr) minmax(140px, 1fr) auto;
+}
+
+.workload-task-date {
+  color: #667085;
+  font-variant-numeric: tabular-nums;
+}
+
+.workload-task-title {
+  font-weight: 600;
+}
+
+.workload-task-epic {
+  color: #667085;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workload-task-overdue .workload-task-date {
+  color: #dc2626;
+}
+
+/* 派工下拉 */
+.assignee-option {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  min-width: 140px;
+}
+
+.assignee-option small {
+  color: #667085;
+}
+
+.assignee-option small.assignee-busy {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+/* 部門容量 */
+.capacity-strip {
+  background: var(--white);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  margin-bottom: 20px;
+  padding: 14px 22px;
+}
+
+.capacity-title {
+  color: #33394a;
+  font-size: 13px;
+  font-weight: 800;
+  margin-bottom: 10px;
+}
+
+.capacity-items {
+  display: grid;
+  gap: 10px 24px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+}
+
+.capacity-item {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 48px 1fr 40px;
+}
+
+.capacity-name {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.capacity-bar {
+  background: #eef2f8;
+  border-radius: 999px;
+  height: 8px;
+  overflow: hidden;
+}
+
+.capacity-bar span {
+  background: #0d5bff;
+  border-radius: 999px;
+  display: block;
+  height: 100%;
+}
+
+.capacity-mid .capacity-bar span {
+  background: #f59e0b;
+}
+
+.capacity-high .capacity-bar span {
+  background: #dc2626;
+}
+
+.capacity-value {
+  color: #33394a;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: right;
+}
+
+/* 專案人力 */
+.manpower-department-bar {
+  display: grid;
+  gap: 6px;
+}
+
+.manpower-stack {
+  border-radius: 999px;
+  display: flex;
+  height: 8px;
+  overflow: hidden;
+}
+
+.manpower-stack span {
+  flex-basis: 0;
+}
+
+.manpower-department-legend {
+  color: #475467;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 12px;
+  gap: 2px 10px;
+}
+
+.manpower-department-legend i {
+  border-radius: 2px;
+  display: inline-block;
+  height: 8px;
+  margin-right: 4px;
+  width: 8px;
+}
+
+.manpower-people {
+  display: grid;
+}
+
+.manpower-top-people .ant-btn {
+  font-size: 12px;
+  height: auto;
+  padding: 0 6px 0 0;
+}
+
+.manpower-progress {
+  display: grid;
+  font-size: 12px;
+  gap: 4px;
+  justify-items: start;
+}
+
+.manpower-progress-bar {
+  background: #eef2f8;
+  border-radius: 999px;
+  display: block;
+  height: 6px;
+  position: relative;
+  width: 100%;
+}
+
+.manpower-progress-bar span {
+  background: #16a34a;
+  border-radius: 999px;
+  display: block;
+  height: 100%;
+}
+
+.manpower-progress-bar i {
+  background: #172033;
+  height: 12px;
+  position: absolute;
+  top: -3px;
+  width: 2px;
+}
+
+.manpower-workdays-cell {
+  display: grid;
+  justify-items: end;
+}
+
+.manpower-workdays-cell small {
+  color: #667085;
+  font-size: 12px;
+}
+
+.workload-available {
+  display: grid;
+}
+
+.workload-available small {
+  font-size: 11px;
+}
