@@ -1650,8 +1650,8 @@ export default function Home() {
               onClick={({ key }) => setActivePage(key as "planner" | "machines" | "settings")}
               items={[
                 { key: "planner", icon: <TableOutlined />, label: "專案計畫" },
-                { key: "machines", icon: <DesktopOutlined />, label: "測試機排程" },
-                { key: "settings", icon: <SettingOutlined />, label: "設定" },
+                { key: "machines", icon: <DesktopOutlined />, label: "測試排程" },
+                { key: "settings", icon: <SettingOutlined />, label: "系統設定" },
               ]}
             />
             <div className="desktop-layout-toggle">
@@ -1726,7 +1726,7 @@ export default function Home() {
                 }}
               >
                 <DesktopOutlined />
-                <span>測試機排程</span>
+                <span>測試排程</span>
                 <RightOutlined className="mobile-drawer-nav-arrow" />
               </button>
               <button
@@ -1739,7 +1739,7 @@ export default function Home() {
                 }}
               >
                 <SettingOutlined />
-                <span>設定</span>
+                <span>系統設定</span>
                 <RightOutlined className="mobile-drawer-nav-arrow" />
               </button>
             </nav>
@@ -1825,7 +1825,7 @@ export default function Home() {
                     header={
                       <section className="manpower-header" aria-label="測試機排程說明">
                         <div>
-                          <Typography.Title level={3}>測試機排程</Typography.Title>
+                          <Typography.Title level={3}>測試排程</Typography.Title>
                           <Typography.Text type="secondary">
                             一台機一列；同一台機器時段重疊會標紅框。最終測試用實體機台，規則測試可用桌機，開發用機是備案。
                           </Typography.Text>
@@ -2502,7 +2502,7 @@ export default function Home() {
               <section className="settings-page" aria-label="設定">
                 <div className="settings-header">
                   <div>
-                    <Typography.Title level={3}>設定</Typography.Title>
+                    <Typography.Title level={3}>系統設定</Typography.Title>
                     <Typography.Text type="secondary">管理專案計畫表使用的下拉選項與假日資料。</Typography.Text>
                   </div>
                 </div>
