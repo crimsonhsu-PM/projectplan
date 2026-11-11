@@ -294,6 +294,7 @@ const COMPACT_EPICS_KEY = "project-plan-compact-epics-v1";
 const GANTT_CELL: Record<GanttZoom, number> = { day: 34, week: 12, month: 4 };
 const DONE_STATUS = "完成";
 const COMPACT_EPIC_MAIN_WIDTH = 600;
+const NARROW_EPIC_MAIN_WIDTH = 560;
 
 function readStored<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
   try {
@@ -552,6 +553,9 @@ export default function Home() {
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [layoutMode, setLayoutMode] = useState<LayoutMode>("auto");
   const [isNarrowViewport, setIsNarrowViewport] = useState(false);
+  // 中等寬度（非全螢幕）：側欄收成圖示；更窄時自動精簡欄位，讓甘特圖有空間
+  const [isMediumViewport, setIsMediumViewport] = useState(false);
+  const [isCompactViewport, setIsCompactViewport] = useState(false);
   const [activePlannerView, setActivePlannerView] = useState<PlannerView>("schedule");
   const [activeEpicCategory, setActiveEpicCategory] = useState<EpicCategory>("機台");
   const [activeSheetId, setActiveSheetIdState] = useState<string>(() => {
@@ -570,6 +574,7 @@ export default function Home() {
   const [undoAction, setUndoAction] = useState<{ label: string; restore: () => void } | null>(null);
   const undoTimerRef = useRef<number | null>(null);
   const todayIso = formatIso(new Date());
+  const effectiveCompact = compactEpics || isCompactViewport;
   const [sheetDialog, setSheetDialog] = useState<{ mode: "add" | "rename"; id?: string; name: string } | null>(null);
   const [visiblePersonnelCategories, setVisiblePersonnelCategories] = useState<EpicCategory[]>(
     () => [...epicCategoryOptions],
@@ -612,7 +617,21 @@ export default function Home() {
     }
     mediaQuery.addEventListener("change", updateViewport);
 
-    return () => mediaQuery.removeEventListener("change", updateViewport);
+    const mediumQuery = window.matchMedia("(max-width: 1439px)");
+    const compactQuery = window.matchMedia("(max-width: 1279px)");
+    const updateWidths = () => {
+      setIsMediumViewport(mediumQuery.matches);
+      setIsCompactViewport(compactQuery.matches);
+    };
+    updateWidths();
+    mediumQuery.addEventListener("change", updateWidths);
+    compactQuery.addEventListener("change", updateWidths);
+
+    return () => {
+      mediaQuery.removeEventListener("change", updateViewport);
+      mediumQuery.removeEventListener("change", updateWidths);
+      compactQuery.removeEventListener("change", updateWidths);
+    };
   }, []);
 
   useEffect(() => {
@@ -876,10 +895,10 @@ export default function Home() {
   );
   // 精簡欄位時只留 WBS、工作項目、狀態、負責人，讓甘特圖有更多寬度。
   const shownTaskColumns = useMemo(() => {
-    if (!compactEpics) return visibleTaskColumns;
+    if (!effectiveCompact) return visibleTaskColumns;
     const compact = new Set<TaskColumnKey>(["wbs", "task", "status", "agent"]);
     return new Set(Array.from(visibleTaskColumns).filter((key) => compact.has(key)));
-  }, [compactEpics, visibleTaskColumns]);
+  }, [effectiveCompact, visibleTaskColumns]);
   const visibleTaskColumnDefinitions = useMemo(
     () => taskColumnDefinitions.filter((column) => shownTaskColumns.has(column.key)),
     [shownTaskColumns],
@@ -1513,8 +1532,10 @@ export default function Home() {
   }
 
   function getTaskGridStyle(): React.CSSProperties {
-    const columnWidths = visibleTaskColumnDefinitions.map((column) => `${column.width}px`).join(" ");
-    const minWidth = visibleTaskColumnDefinitions.reduce((total, column) => total + column.width, 28 + 24 + 32 + 8 * (visibleTaskColumnDefinitions.length + 2));
+    // 視窗較窄時工作項目名稱欄縮窄，讓甘特圖多一點空間
+    const widthOf = (column: (typeof visibleTaskColumnDefinitions)[number]) => (isCompactViewport && column.key === "task" ? 170 : column.width);
+    const columnWidths = visibleTaskColumnDefinitions.map((column) => `${widthOf(column)}px`).join(" ");
+    const minWidth = visibleTaskColumnDefinitions.reduce((total, column) => total + widthOf(column), 28 + 24 + 32 + 8 * (visibleTaskColumnDefinitions.length + 2));
     return {
       gridTemplateColumns: `24px 28px ${columnWidths} 32px`,
       minWidth,
@@ -1673,10 +1694,10 @@ export default function Home() {
         },
       }}
     >
-      <div className={`layout-viewport layout-${layoutMode}`}>
+      <div className={`layout-viewport layout-${layoutMode} ${resolvedLayout === "desktop" ? "is-desktop" : "is-mobile"}`}>
       <main className="backend-shell">
         <Layout className="backend-layout">
-          <Layout.Sider className="backend-sider" width={216}>
+          <Layout.Sider className="backend-sider" collapsed={isMediumViewport} collapsedWidth={76} trigger={null} width={216}>
             <div className="backend-brand">
               <ProjectOutlined />
               <span>Project Demo</span>
@@ -1692,9 +1713,11 @@ export default function Home() {
               ]}
             />
             <div className="desktop-layout-toggle">
-              <Button block icon={<MobileOutlined />} onClick={toggleLayoutMode}>
-                切換手機版
-              </Button>
+              <Tooltip placement="right" title={isMediumViewport ? "切換手機版" : undefined}>
+                <Button aria-label="切換手機版" block icon={<MobileOutlined />} onClick={toggleLayoutMode}>
+                  {isMediumViewport ? null : "切換手機版"}
+                </Button>
+              </Tooltip>
             </div>
           </Layout.Sider>
           <header className="mobile-app-header">
@@ -2097,8 +2120,8 @@ export default function Home() {
                     ) : null}
                     {activePlannerView === "schedule" ? (
                       <label className="completed-project-toggle">
-                        <Switch aria-label="精簡欄位" checked={compactEpics} onChange={setCompactEpics} />
-                        <span>精簡欄位，甘特圖放大</span>
+                        <Switch aria-label="精簡欄位" checked={effectiveCompact} disabled={isCompactViewport} onChange={setCompactEpics} />
+                        <span>{isCompactViewport ? "視窗較窄，已自動精簡欄位" : "精簡欄位，甘特圖放大"}</span>
                       </label>
                     ) : null}
                   </div>
@@ -2111,9 +2134,9 @@ export default function Home() {
                       const isCollapsed = collapsedEpicIds.has(epic.id);
                       return (
                         <article
-                          className={`epic-card ${compactEpics ? "epic-card-compact" : ""} ${draggingEpicId === epic.id ? "epic-card-dragging" : ""}`}
+                          className={`epic-card ${effectiveCompact ? "epic-card-compact" : ""} ${draggingEpicId === epic.id ? "epic-card-dragging" : ""}`}
                           key={epic.id}
-                          style={{ "--epic-main-width": `${compactEpics ? COMPACT_EPIC_MAIN_WIDTH : epicMainWidth}px` } as React.CSSProperties}
+                          style={{ "--epic-main-width": `${isCompactViewport ? NARROW_EPIC_MAIN_WIDTH : effectiveCompact ? COMPACT_EPIC_MAIN_WIDTH : epicMainWidth}px` } as React.CSSProperties}
                           onMouseLeave={() => setGanttHoverLine((current) => (current?.epicId === epic.id ? null : current))}
                           onDragOver={(event) => {
                             if (draggingEpicId) {

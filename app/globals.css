@@ -3217,3 +3217,140 @@ select {
     grid-template-columns: 1fr 32px;
   }
 }
+
+/* ===== RWD：非全螢幕的桌面寬度 ===== */
+.layout-viewport.is-desktop {
+  min-width: 900px;
+}
+
+.is-desktop .project-header {
+  align-items: flex-end;
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.is-desktop .project-header > .project-title {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+.is-desktop .project-header > label {
+  flex: 0 1 190px;
+  min-width: 150px;
+}
+
+.is-desktop .project-header > .ant-btn {
+  flex: 0 1 120px;
+  min-width: 84px;
+}
+
+.is-desktop .manpower-header {
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.manpower-header-summary span,
+.people-header-actions .manpower-header-summary span {
+  white-space: nowrap;
+}
+
+.people-header-actions {
+  flex-wrap: wrap;
+}
+
+.backend-sider.ant-layout-sider-collapsed .backend-brand {
+  justify-content: center;
+  padding: 0;
+}
+
+.backend-sider.ant-layout-sider-collapsed .backend-brand > span:not(.anticon) {
+  display: none;
+}
+
+.backend-sider.ant-layout-sider-collapsed .ant-menu {
+  padding: 34px 10px 10px;
+}
+
+.backend-sider.ant-layout-sider-collapsed .desktop-layout-toggle {
+  left: 12px;
+  right: 12px;
+}
+
+@media (max-width: 1439px) {
+  .is-desktop .backend-content {
+    padding: 0 24px 32px;
+  }
+
+  .is-desktop .epic-card {
+    grid-template-columns: 40px var(--epic-main-width, 760px) 12px minmax(300px, 1fr);
+    padding: 18px;
+  }
+}
+
+@media (max-width: 1279px) {
+  .settings-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-nav {
+    display: flex;
+    flex-wrap: wrap;
+    position: static;
+  }
+
+  .settings-nav-item {
+    gap: 8px;
+  }
+
+  .settings-two-col {
+    grid-template-columns: 240px minmax(0, 1fr);
+  }
+
+  .people-row {
+    grid-template-columns: minmax(110px, 1fr) 140px 64px 32px;
+  }
+
+  .settings-search {
+    max-width: 160px;
+  }
+
+  .tm-board {
+    grid-template-columns: 210px minmax(0, 1fr);
+  }
+
+  .holiday-line {
+    grid-template-columns: 240px 56px minmax(120px, 1fr) 32px;
+  }
+
+  .is-desktop .epic-filter-bar {
+    gap: 12px;
+    padding: 0 16px;
+  }
+}
+
+@media (max-width: 1099px) {
+  .settings-two-col {
+    grid-template-columns: 1fr;
+  }
+
+  .department-list {
+    max-height: 240px;
+  }
+}
+
+@media (max-width: 1179px) {
+  .is-desktop .project-header > .project-title {
+    flex-basis: 100%;
+  }
+
+  .is-desktop .project-header > .ant-btn {
+    flex: 1 1 110px;
+  }
+}
+
+@media (max-width: 1279px) {
+  .is-desktop .epic-card {
+    column-gap: 10px;
+    grid-template-columns: 32px var(--epic-main-width, 560px) 8px minmax(220px, 1fr);
+  }
+}
