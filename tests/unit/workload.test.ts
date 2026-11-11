@@ -53,3 +53,12 @@ describe("department capacity", () => {
     expect(planning).toEqual({ department: "企劃", people: 2, scheduledDays: 5, availableDays: 10 });
   });
 });
+
+describe("shiftWorkdays", () => {
+  it("moves across weekends and holidays", async () => {
+    const { shiftWorkdays } = await import("../../lib/workload");
+    expect(shiftWorkdays("2026-11-13", 1, new Set())).toBe("2026-11-16");
+    expect(shiftWorkdays("2026-11-13", 2, new Set(["2026-11-16"]))).toBe("2026-11-18");
+    expect(shiftWorkdays("2026-11-16", -1, new Set())).toBe("2026-11-13");
+  });
+});

@@ -50,7 +50,7 @@ import {
 } from "@ant-design/icons";
 import { saveFile } from "@/lib/save-file";
 import { isUnassigned } from "@/lib/auto-assign";
-import { buildDepartmentCapacity, buildWorkloads, countConcurrent, weekStarts as getWeekStarts } from "@/lib/workload";
+import { buildDepartmentCapacity, buildWorkloads, countConcurrent, shiftWorkdays, weekStarts as getWeekStarts } from "@/lib/workload";
 import { DepartmentCapacityStrip, WorkloadOverview } from "./workload-views";
 import dayjs from "dayjs";
 import {
@@ -561,6 +561,10 @@ export default function Home() {
   const [compactEpics, setCompactEpicsState] = useState<boolean>(() => readStored(COMPACT_EPICS_KEY, ["1", "0"] as const, "0") === "1");
   const [searchText, setSearchText] = useState("");
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(() => new Set());
+  const [batchShiftDays, setBatchShiftDays] = useState(1);
+  const [undoAction, setUndoAction] = useState<{ label: string; restore: () => void } | null>(null);
+  const undoTimerRef = useRef<number | null>(null);
   const todayIso = formatIso(new Date());
   const [sheetDialog, setSheetDialog] = useState<{ mode: "add" | "rename"; id?: string; name: string } | null>(null);
   const [visiblePersonnelCategories, setVisiblePersonnelCategories] = useState<EpicCategory[]>(
@@ -1318,8 +1322,19 @@ export default function Home() {
       okButtonProps: { danger: true },
       cancelText: "取消",
       onOk: () => {
+        const index = epics.findIndex((item) => item.id === epicId);
+        const removed = epics[index];
         setEpics((current) => current.filter((item) => item.id !== epicId));
         setEditingEpicId((current) => (current === epicId ? null : current));
+        if (removed) {
+          offerUndo(`已刪除「${removed.title}」`, () =>
+            setEpics((current) =>
+              current.some((item) => item.id === removed.id)
+                ? current
+                : [...current.slice(0, index), removed, ...current.slice(index)],
+            ),
+          );
+        }
       },
     });
   }
@@ -1371,7 +1386,67 @@ export default function Home() {
     );
   }
 
+  function offerUndo(label: string, restore: () => void) {
+    if (undoTimerRef.current) window.clearTimeout(undoTimerRef.current);
+    setUndoAction({ label, restore });
+    undoTimerRef.current = window.setTimeout(() => setUndoAction(null), 10000);
+  }
+
+  function restoreTasks(epicId: string, previous: Task[]) {
+    setEpics((current) => current.map((epic) => (epic.id === epicId ? normalizeEpic({ ...epic, tasks: previous }) : epic)));
+  }
+
+  function toggleTaskSelection(taskId: string, checked: boolean) {
+    setSelectedTaskIds((current) => {
+      const next = new Set(current);
+      if (checked) next.add(taskId);
+      else next.delete(taskId);
+      return next;
+    });
+  }
+
+  // 批次修改：只改勾選的工作項目
+  function updateSelectedTasks(change: (task: Task) => Partial<Task>) {
+    setEpics((current) =>
+      current.map((epic) =>
+        epic.tasks.some((task) => selectedTaskIds.has(task.id))
+          ? normalizeEpic({
+              ...epic,
+              tasks: epic.tasks.map((task) => (selectedTaskIds.has(task.id) ? normalizeTask({ ...task, ...change(task) }) : task)),
+            })
+          : epic,
+      ),
+    );
+  }
+
+  function deleteSelectedTasks() {
+    const snapshot = epics;
+    const count = selectedTaskIds.size;
+    Modal.confirm({
+      title: `刪除 ${count} 個工作項目？`,
+      okText: "刪除",
+      okButtonProps: { danger: true },
+      cancelText: "取消",
+      onOk: () => {
+        setEpics((current) =>
+          current.map((epic) =>
+            epic.tasks.some((task) => selectedTaskIds.has(task.id))
+              ? normalizeEpic({ ...epic, tasks: renumberTasks(epic.tasks.filter((task) => !selectedTaskIds.has(task.id)), epic.wbs) })
+              : epic,
+          ),
+        );
+        setSelectedTaskIds(new Set());
+        offerUndo(`已刪除 ${count} 個工作項目`, () => setEpics(snapshot));
+      },
+    });
+  }
+
   function deleteTask(epicId: string, taskId: string) {
+    const epicBefore = epics.find((epic) => epic.id === epicId);
+    const removed = epicBefore?.tasks.find((task) => task.id === taskId);
+    if (epicBefore && removed) {
+      offerUndo(`已刪除工作項目「${removed.title || removed.wbs}」`, () => restoreTasks(epicId, epicBefore.tasks));
+    }
     setEpics((current) =>
       current.map((epic) =>
         epic.id === epicId
@@ -1398,9 +1473,9 @@ export default function Home() {
 
   function getTaskGridStyle(): React.CSSProperties {
     const columnWidths = visibleTaskColumnDefinitions.map((column) => `${column.width}px`).join(" ");
-    const minWidth = visibleTaskColumnDefinitions.reduce((total, column) => total + column.width, 28 + 32 + 8 * (visibleTaskColumnDefinitions.length + 1));
+    const minWidth = visibleTaskColumnDefinitions.reduce((total, column) => total + column.width, 28 + 24 + 32 + 8 * (visibleTaskColumnDefinitions.length + 2));
     return {
-      gridTemplateColumns: `28px ${columnWidths} 32px`,
+      gridTemplateColumns: `24px 28px ${columnWidths} 32px`,
       minWidth,
     };
   }
@@ -2119,6 +2194,18 @@ export default function Home() {
                                 </Space>
                               </div>
                               <div className="task-columns-header" style={getTaskGridStyle()}>
+                                <Checkbox
+                                  aria-label="全選這個 Epic 的工作項目"
+                                  checked={epic.tasks.length > 0 && epic.tasks.every((task) => selectedTaskIds.has(task.id))}
+                                  indeterminate={epic.tasks.some((task) => selectedTaskIds.has(task.id)) && !epic.tasks.every((task) => selectedTaskIds.has(task.id))}
+                                  onChange={(event) =>
+                                    setSelectedTaskIds((current) => {
+                                      const next = new Set(current);
+                                      epic.tasks.forEach((task) => (event.target.checked ? next.add(task.id) : next.delete(task.id)));
+                                      return next;
+                                    })
+                                  }
+                                />
                                 <span />
                                 {visibleTaskColumnDefinitions.map((column) => (
                                   <span className="task-header-cell" key={column.key}>
@@ -2154,6 +2241,11 @@ export default function Home() {
                                       setTaskDropTarget(null);
                                     }}
                                   >
+                                    <Checkbox
+                                      aria-label={`勾選 ${task.wbs}`}
+                                      checked={selectedTaskIds.has(task.id)}
+                                      onChange={(event) => toggleTaskSelection(task.id, event.target.checked)}
+                                    />
                                     <button
                                       aria-label={`拖曳 ${task.title} 調整順序`}
                                       className="task-drag-handle"
@@ -2612,6 +2704,70 @@ export default function Home() {
       </Modal>
       </main>
       </div>
+      {selectedTaskIds.size > 0 ? (
+        <div className="batch-bar" role="toolbar" aria-label="批次修改工作項目">
+          <strong>已選 {selectedTaskIds.size} 項</strong>
+          <Select
+            aria-label="批次設定負責人"
+            className="batch-field"
+            options={assigneeSelectOptions}
+            placeholder="改負責人"
+            showSearch
+            value={null}
+            onChange={(value) => value && updateSelectedTasks(() => ({ assignee: value }))}
+          />
+          <Select
+            aria-label="批次設定狀態"
+            className="batch-field"
+            options={statusSelectOptions}
+            placeholder="改狀態"
+            value={null}
+            onChange={(value) => value && updateSelectedTasks(() => ({ type: value }))}
+          />
+          <Space.Compact>
+            <Input
+              aria-label="移動工作天數"
+              className="batch-shift"
+              suffix="工作天"
+              type="number"
+              value={batchShiftDays}
+              onChange={(event) => setBatchShiftDays(Math.trunc(Number(event.target.value) || 0))}
+            />
+            <Button
+              disabled={!batchShiftDays}
+              onClick={() =>
+                updateSelectedTasks((task) => ({
+                  startDate: shiftWorkdays(task.startDate, batchShiftDays, holidayDates),
+                  finishDate: shiftWorkdays(task.finishDate, batchShiftDays, holidayDates),
+                }))
+              }
+            >
+              {batchShiftDays >= 0 ? "往後移" : "往前移"}
+            </Button>
+          </Space.Compact>
+          <Button danger icon={<DeleteOutlined />} onClick={deleteSelectedTasks}>
+            刪除
+          </Button>
+          <Button type="text" onClick={() => setSelectedTaskIds(new Set())}>
+            取消勾選
+          </Button>
+        </div>
+      ) : null}
+      {undoAction ? (
+        <div className="undo-bar" role="status">
+          <span>{undoAction.label}</span>
+          <Button
+            size="small"
+            type="link"
+            onClick={() => {
+              undoAction.restore();
+              setUndoAction(null);
+            }}
+          >
+            復原
+          </Button>
+        </div>
+      ) : null}
     </ConfigProvider>
   );
 }

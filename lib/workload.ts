@@ -172,3 +172,16 @@ export function buildDepartmentCapacity(
   }
   return Array.from(result.values()).sort((a, b) => b.scheduledDays / (b.availableDays || 1) - a.scheduledDays / (a.availableDays || 1));
 }
+
+// 把日期往後（或往前）移 N 個工作日，跳過週末與假日
+export function shiftWorkdays(iso: string, amount: number, holidayDates: Set<string>) {
+  let current = parse(iso);
+  if (Number.isNaN(current.getTime()) || !amount) return iso;
+  const step = amount > 0 ? 1 : -1;
+  let remaining = Math.abs(amount);
+  while (remaining > 0) {
+    current = addDays(current, step);
+    if (isWorkday(current, holidayDates)) remaining -= 1;
+  }
+  return formatIso(current);
+}

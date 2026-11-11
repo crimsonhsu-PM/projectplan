@@ -2753,3 +2753,45 @@ select {
 .workload-available small {
   font-size: 11px;
 }
+
+.batch-bar,
+.undo-bar {
+  align-items: center;
+  background: #172033;
+  border-radius: 12px;
+  bottom: 24px;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.28);
+  color: #ffffff;
+  display: flex;
+  gap: 10px;
+  left: 50%;
+  padding: 10px 14px;
+  position: fixed;
+  transform: translateX(-50%);
+  z-index: 1000;
+}
+
+.batch-bar strong {
+  white-space: nowrap;
+}
+
+.batch-field {
+  width: 130px;
+}
+
+.batch-shift {
+  width: 110px;
+}
+
+.undo-bar {
+  bottom: 84px;
+}
+
+.undo-bar .ant-btn-link {
+  color: #8db4ff;
+  font-weight: 700;
+}
+
+.batch-bar .ant-btn-variant-text:not(.ant-btn-dangerous) {
+  color: #cbd5e1;
+}
