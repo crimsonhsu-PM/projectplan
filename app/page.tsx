@@ -52,6 +52,8 @@ import { saveFile } from "@/lib/save-file";
 import { isUnassigned } from "@/lib/auto-assign";
 import { buildDepartmentCapacity, buildWorkloads, countConcurrent, shiftWorkdays, weekStarts as getWeekStarts } from "@/lib/workload";
 import { DepartmentCapacityStrip, WorkloadOverview } from "./workload-views";
+import { DEFAULT_TEST_MACHINES } from "@/lib/test-machines";
+import { TestMachineSettingsCard, TestMachineView } from "./test-machine-view";
 import dayjs from "dayjs";
 import {
   addDays,
@@ -111,7 +113,7 @@ type LayoutMode = "auto" | "desktop" | "mobile";
 type ImportMode = "append" | "replace";
 
 type SyncStatus = "loading" | "saved" | "saving" | "offline" | "error";
-type PlannerView = "schedule" | "manpower" | "people";
+type PlannerView = "schedule" | "manpower" | "people" | "machines";
 
 const syncStatusLabels: Record<SyncStatus, string> = {
   loading: "資料載入中",
@@ -147,6 +149,8 @@ type TaskColumnKey = (typeof taskColumnDefinitions)[number]["key"];
 
 const defaultSettings: AppSettings = {
   sheets: [],
+  testMachines: DEFAULT_TEST_MACHINES,
+  testBookings: [],
   departments: ["企劃", "前端", "後端", "QA", "PM"],
   agents: [
     { id: "agent-simon", name: "Simon", department: "企劃" },
@@ -1741,6 +1745,7 @@ export default function Home() {
                     { key: "schedule", label: "專案時程" },
                     { key: "manpower", label: "專案人力" },
                     { key: "people", label: "人員時程" },
+                    { key: "machines", label: "測試機排程" },
                   ]}
                   onChange={(key) => setActivePlannerView(key as PlannerView)}
                 />
@@ -1789,6 +1794,63 @@ export default function Home() {
                   ) : null}
                 </div>
 
+                {activePlannerView === "machines" ? (
+                  <TestMachineView
+                    agents={settings.agents}
+                    bookings={settings.testBookings}
+                    days={days}
+                    epics={epics}
+                    ganttPanelStyle={ganttPanelStyle(days.length, ganttZoom)}
+                    holidayDates={holidayDates}
+                    machines={settings.testMachines}
+                    todayIso={todayIso}
+                    zoom={ganttZoom}
+                    header={
+                      <section className="manpower-header" aria-label="測試機排程說明">
+                        <div>
+                          <Typography.Title level={3}>測試機排程</Typography.Title>
+                          <Typography.Text type="secondary">
+                            一台機一列；同一台機器時段重疊會標紅框。最終測試用實體機台，規則測試可用桌機，開發用機是備案。
+                          </Typography.Text>
+                        </div>
+                        <div className="tm-header-controls">
+                          <Segmented
+                            aria-label="甘特圖縮放"
+                            options={[
+                              { label: "日", value: "day" },
+                              { label: "週", value: "week" },
+                              { label: "月", value: "month" },
+                            ]}
+                            value={ganttZoom}
+                            onChange={(value) => setGanttZoom(value as GanttZoom)}
+                          />
+                          <Button icon={<CalendarOutlined />} onClick={() => {
+                            const panel = document.querySelector<HTMLElement>(".tm-gantt");
+                            const line = panel?.querySelector<HTMLElement>(".gantt-today-line");
+                            if (panel && line) panel.scrollLeft = Math.max(0, line.offsetLeft - 120);
+                          }}>
+                            今天
+                          </Button>
+                          <Field label="甘特圖起始日">
+                            <DatePicker
+                              aria-label="測試機排程 甘特圖起始日"
+                              value={dayjs(viewProject.startDate)}
+                              onChange={(date) => date && updateViewProject({ startDate: date.format("YYYY-MM-DD") })}
+                              allowClear={false}
+                              inputReadOnly
+                            />
+                          </Field>
+                        </div>
+                      </section>
+                    }
+                    onChangeBookings={(next) => setSettings((current) => ({ ...current, testBookings: next }))}
+                    onSyncTaskDates={(taskRef, startDate, finishDate) => {
+                      const [epicId, taskId] = taskRef.split("/");
+                      if (epicId && taskId) updateTask(epicId, taskId, { startDate, finishDate });
+                    }}
+                  />
+                ) : (
+                  <>
                 {activePlannerView === "schedule" ? (
                   <section className="project-header" aria-label="專案資訊">
                   <div className="project-title">
@@ -2416,6 +2478,8 @@ export default function Home() {
                     <PersonnelScheduleView days={personnelDays} summaries={personnelScheduleSummaries} todayIso={todayIso} zoom={ganttZoom} />
                   </>
                 )}
+                  </>
+                )}
               </>
             ) : (
               <section className="settings-page" aria-label="設定">
@@ -2435,6 +2499,10 @@ export default function Home() {
                     departments={settings.departments}
                     values={settings.agents}
                     onChange={updateAgents}
+                  />
+                  <TestMachineSettingsCard
+                    machines={settings.testMachines}
+                    onChange={(next) => setSettings((current) => ({ ...current, testMachines: next }))}
                   />
                   <HolidaySettingsCard
                     values={settings.holidays}
@@ -3320,7 +3388,7 @@ function AgentSettingsCard({
   return (
     <Card
       className="settings-card"
-      title="Agent設定"
+      title="負責人設定"
       extra={
         <Button
           type="primary"

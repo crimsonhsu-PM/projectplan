@@ -56,8 +56,38 @@ export type SheetOption = {
   startDate?: string; // 甘特圖從哪天開始顯示
 };
 
+export type TestMachineKind = "實體機台" | "桌機" | "開發用機";
+
+export type TestMachine = {
+  id: string;
+  name: string;
+  kind: TestMachineKind;
+  ipc: string; // 實體機台的 IPC：艾訊、Quixant
+  floor: string;
+  host: string;
+  billAcceptor: string;
+  status: "可用" | "維修中";
+};
+
+export type TestBooking = {
+  id: string;
+  machineId: string;
+  epicIds: string[]; // 這次部署的遊戲（同一版本集可多款）
+  round: string; // 規則測試、R1–R4、Prod、合併測試、升級測試、開發
+  item: string; // 測試項目
+  versionSet: string;
+  qa: string;
+  startDate: string;
+  finishDate: string;
+  status: "待佈署" | "測試中" | "完成" | "取消";
+  taskRef: string; // 連結的工作項目：epicId/taskId
+  note: string;
+};
+
 export type AppSettings = {
   sheets: SheetOption[];
+  testMachines: TestMachine[];
+  testBookings: TestBooking[];
   departments: string[];
   agents: AgentOption[];
   holidays: HolidayRange[];

@@ -16,6 +16,7 @@ import {
   type SheetOption,
   type Task,
 } from "./planner-types";
+import { normalizeTestBookings, normalizeTestMachines } from "./test-machines";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -392,6 +393,8 @@ export function normalizeSettings(settings: Partial<AppSettings> | undefined, de
   const departments = normalizeSettingList(settings?.departments, defaults.departments);
   return {
     sheets: normalizeSheets(settings?.sheets, defaults.sheets),
+    testMachines: normalizeTestMachines(settings?.testMachines, defaults.testMachines),
+    testBookings: normalizeTestBookings(settings?.testBookings),
     departments,
     agents: normalizeAgentList(settings?.agents, defaults.agents, departments),
     holidays: normalizeHolidayRanges(settings?.holidays, defaults.holidays),

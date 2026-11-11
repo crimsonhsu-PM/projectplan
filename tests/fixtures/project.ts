@@ -2,6 +2,8 @@ import type { AppSettings, Epic, StoredProjectData, Task } from "../../lib/plann
 
 export const settingsFixture: AppSettings = {
   sheets: [],
+  testMachines: [],
+  testBookings: [],
   departments: ["企劃", "QA", "PM"],
   agents: [
     { id: "agent-alice", name: "Alice", department: "企劃" },
