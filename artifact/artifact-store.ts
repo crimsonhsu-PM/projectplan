@@ -38,7 +38,7 @@ let appliedMigrations: string[] = [];
 type Patch = Record<string, { title?: string; rm?: string }>;
 
 // Code migrations run in order after the file ones; each returns a backup to keep in backups/<name>.
-const MIGRATIONS = ["games-v2", "auto-assign-v1", "sheets-v1", "sheet-dates-v1", "sheets-home-v2", "game-first-v1", "test-bookings-demo-v1", "overdue-cleanup-v1"];
+const MIGRATIONS = ["games-v2", "auto-assign-v1", "sheets-v1", "sheet-dates-v1", "sheets-home-v2", "game-first-v1", "test-bookings-demo-v1", "overdue-cleanup-v1", "demo-epics-v1"];
 const CODE_MIGRATIONS: Record<string, (data: StoredProjectData) => Record<string, unknown>> = {
   // 把去識別化的遊戲名稱改回真實名稱（原本放在 migrations/games-v2.json，改為內建避免讀檔失敗）。
   "games-v2": (data) => {
@@ -185,6 +185,106 @@ const CODE_MIGRATIONS: Record<string, (data: StoredProjectData) => Record<string
       task.progress = 100;
     }
     return { kept: [...keep], changed: Object.keys(original).length, original };
+  },
+  // 示範資料：4 個正在進行／即將開始的 Epic，日期以今天為基準，讓專案人力、人員時程有數據可看（備註標「示範資料」）。
+  "demo-epics-v1": (data) => {
+    const epics = (data.epics ??= []);
+    if (epics.some((epic) => epic.id.startsWith("demo-"))) return { skipped: true };
+    const pad = (value: number) => String(value).padStart(2, "0");
+    const iso = (date: Date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+    const holidays = new Set<string>();
+    for (const holiday of data.settings?.holidays ?? []) {
+      for (let day = new Date(`${holiday.startDate}T00:00:00`); iso(day) <= holiday.endDate; day.setDate(day.getDate() + 1)) holidays.add(iso(day));
+    }
+    const isWorkday = (date: Date) => date.getDay() !== 0 && date.getDay() !== 6 && !holidays.has(iso(date));
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    while (!isWorkday(today)) today.setDate(today.getDate() + 1);
+    const todayIso = iso(today);
+    const shift = (offset: number) => {
+      const date = new Date(today);
+      let remaining = Math.abs(offset);
+      while (remaining > 0) {
+        date.setDate(date.getDate() + Math.sign(offset));
+        if (isWorkday(date)) remaining -= 1;
+      }
+      return iso(date);
+    };
+    const maxWbs = epics.reduce((max, epic) => Math.max(max, Number.parseInt(epic.wbs, 10) || 0), 0);
+    type Row = [title: string, department: string, assignee: string, from: number, to: number];
+    const build = (index: number, title: string, category: "機台" | "線上", type: string, owner: string, rows: Row[]): Epic => {
+      const wbs = String(maxWbs + index + 1);
+      const tasks = rows.map(([taskTitle, department, assignee, from, to], taskIndex) => {
+        const startDate = shift(from);
+        const finishDate = shift(to);
+        const status = finishDate < todayIso ? "完成" : startDate <= todayIso ? "進行中" : "待辦";
+        return {
+          id: `demo-e${index + 1}-t${taskIndex + 1}`,
+          wbs: `${wbs}.${taskIndex + 1}`,
+          department,
+          title: taskTitle,
+          type: status,
+          assignee,
+          startDate,
+          finishDate,
+          duration: 1,
+          rm: "示範資料",
+          progress: status === "完成" ? 100 : 0,
+        };
+      });
+      return {
+        id: `demo-e${index + 1}`,
+        wbs,
+        title,
+        category,
+        priority: "1",
+        type,
+        department: "PM",
+        assignee: owner,
+        startDate: tasks[0].startDate,
+        finishDate: tasks.reduce((latest, task) => (task.finishDate > latest ? task.finishDate : latest), tasks[0].finishDate),
+        duration: 1,
+        rm: "2026 下半｜示範資料",
+        progress: 0,
+        starred: false,
+        sheetId: (data.settings?.sheets ?? []).some((sheet) => sheet.id === "sheet-2026-h2") ? "sheet-2026-h2" : undefined,
+        tasks,
+      };
+    };
+    const demo = [
+      build(0, "示範｜新遊戲開發 - 星光寶石", "機台", "全新開發", "Mia", [
+        ["企劃規格書", "企劃", "Ethan", -12, -7],
+        ["數學模型與 RTP", "數學", "Kia", -9, -1],
+        ["美術原畫與動畫", "美術", "Danna", -5, 5],
+        ["前端開發（動畫＋音效＋資料）", "前端", "Olivia", -1, 12],
+        ["後端 API 與遊戲參數", "後端", "Lucas", 1, 8],
+        ["QA 進測 R1", "QA", "Lanx", 13, 17],
+        ["上線準備與通知", "PM", "Mia", 18, 19],
+      ]),
+      build(1, "示範｜線上活動 - 年終福袋", "線上", "活動", "Ruby", [
+        ["活動企劃與規則", "企劃", "Nora", -6, -1],
+        ["活動美術素材", "美術", "Zoe", -2, 3],
+        ["後端獎勵與兌換設定", "後端", "Daniel", 0, 5],
+        ["前端活動頁", "前端", "Kevin", 1, 6],
+        ["QA 活動測試", "QA", "Lanx", 7, 9],
+      ]),
+      build(2, "示範｜機台版本更新 - Q4", "機台", "優化", "Mia", [
+        ["版本規劃與範疇確認", "企劃", "Chloe", -7, -3],
+        ["韌體更新", "韌體", "sam", -2, 4],
+        ["後端調整", "後端", "Ryan", 0, 6],
+        ["前端修正", "前端", "Olivia", 3, 8],
+        ["QA 升級測試", "QA", "Lanx", 9, 11],
+      ]),
+      build(3, "示範｜新遊戲開發 - 龍騰四海", "線上", "移植開發", "Ruby", [
+        ["企劃規格與 Overview", "企劃", "Ivy", 2, 6],
+        ["數學資料", "數學", "Kia", 5, 12],
+        ["美術製圖", "美術", "RCG", 4, 14],
+        ["前端開發", "前端", "Kevin", 10, 20],
+        ["QA 進測 R1", "QA", "Lanx", 21, 24],
+      ]),
+    ];
+    data.epics = [...demo, ...epics];
+    return { added: demo.map((epic) => epic.id) };
   },
 };
 
