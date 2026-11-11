@@ -1,6 +1,8 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { Button, Table, Tag, Tooltip, Typography } from "antd";
+import { DownOutlined, RightOutlined } from "@ant-design/icons";
 import type { TableProps } from "antd";
 import type { DepartmentCapacity, OpenTask, PersonWorkload } from "@/lib/workload";
 import type { Task } from "@/lib/planner-types";
@@ -21,9 +23,11 @@ export function WorkloadOverview({
   workloads,
   weekStarts,
   todayIso,
+  departments,
   onPick,
 }: {
   workloads: PersonWorkload[];
+  departments: string[];
   weekStarts: string[];
   todayIso: string;
   onPick: (name: string) => void;
@@ -96,6 +100,31 @@ export function WorkloadOverview({
     },
   ];
 
+  // 依部門分組，可展開／收起；部門順序照系統設定
+  const groups = useMemo(() => {
+    const map = new Map<string, PersonWorkload[]>();
+    workloads.forEach((person) => {
+      const key = person.department || "未設定部門";
+      map.set(key, [...(map.get(key) ?? []), person]);
+    });
+    const order = (name: string) => {
+      const index = departments.indexOf(name);
+      return index < 0 ? departments.length : index;
+    };
+    return Array.from(map.entries())
+      .sort((a, b) => order(a[0]) - order(b[0]) || a[0].localeCompare(b[0]))
+      .map(([department, people]) => ({
+        department,
+        people,
+        open: people.reduce((total, person) => total + person.openCount, 0),
+        overdue: people.reduce((total, person) => total + person.overdueCount, 0),
+        freeNow: people.filter((person) => person.availableFrom <= todayIso).length,
+        earliest: people.map((person) => person.availableFrom).sort()[0] ?? "",
+      }));
+  }, [departments, todayIso, workloads]);
+  // 記錄收起的部門，預設全部展開
+  const [closedGroups, setClosedGroups] = useState<Set<string>>(() => new Set());
+
   return (
     <section className="workload-overview" aria-label="人員總表">
       <div className="workload-heading">
@@ -110,20 +139,62 @@ export function WorkloadOverview({
           </span>
         </div>
       </div>
-      <Table<PersonWorkload>
-        className="workload-table"
-        columns={columns}
-        dataSource={workloads}
-        rowKey="name"
-        size="small"
-        locale={{ emptyText: "沒有符合篩選的人員" }}
-        pagination={false}
-        scroll={{ x: 560 + 44 * weekStarts.length }}
-        expandable={{
-          rowExpandable: (person) => person.openTasks.length > 0,
-          expandedRowRender: (person) => <PersonTasks person={person} />,
-        }}
-      />
+      <div className="workload-group-actions">
+        <Button size="small" onClick={() => setClosedGroups(new Set())}>
+          全部展開
+        </Button>
+        <Button size="small" onClick={() => setClosedGroups(new Set(groups.map((group) => group.department)))}>
+          全部收起
+        </Button>
+      </div>
+      {groups.length ? (
+        groups.map((group) => {
+          const isOpen = !closedGroups.has(group.department);
+          return (
+            <section className="workload-department" key={group.department}>
+              <button
+                aria-expanded={isOpen}
+                className="workload-department-head"
+                type="button"
+                onClick={() =>
+                  setClosedGroups((current) => {
+                    const next = new Set(current);
+                    if (next.has(group.department)) next.delete(group.department);
+                    else next.add(group.department);
+                    return next;
+                  })
+                }
+              >
+                {isOpen ? <DownOutlined /> : <RightOutlined />}
+                <strong>{group.department}</strong>
+                <span className="workload-muted">{group.people.length} 人</span>
+                <span>手上未完成 {group.open} 件</span>
+                {group.overdue ? <span className="workload-overdue">逾期 {group.overdue} 件</span> : null}
+                <span className="workload-department-free">
+                  {group.freeNow ? `現在有空 ${group.freeNow} 人` : `最快 ${group.earliest} 有空`}
+                </span>
+              </button>
+              {isOpen ? (
+                <Table<PersonWorkload>
+                  className="workload-table"
+                  columns={columns}
+                  dataSource={group.people}
+                  rowKey="name"
+                  size="small"
+                  pagination={false}
+                  scroll={{ x: 560 + 44 * weekStarts.length }}
+                  expandable={{
+                    rowExpandable: (person) => person.openTasks.length > 0,
+                    expandedRowRender: (person) => <PersonTasks person={person} />,
+                  }}
+                />
+              ) : null}
+            </section>
+          );
+        })
+      ) : (
+        <Typography.Text type="secondary">沒有符合篩選的人員</Typography.Text>
+      )}
     </section>
   );
 }

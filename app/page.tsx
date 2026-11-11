@@ -2551,6 +2551,7 @@ export default function Home() {
                 ) : (
                   <>
                     <WorkloadOverview
+                      departments={settings.departments}
                       onPick={(name) => setAgentFilter(name)}
                       todayIso={todayIso}
                       weekStarts={workloadWeekStarts}

@@ -3424,3 +3424,46 @@ select {
 .workload-task-overdue .workload-task-date {
   color: #dc2626;
 }
+
+/* 人員總表依部門展開／收起 */
+.workload-group-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.workload-department {
+  border: 1px solid #edf0f7;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+.workload-department-head {
+  align-items: center;
+  background: #f7f9fd;
+  border: 0;
+  color: #172033;
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 13px;
+  gap: 6px 14px;
+  padding: 10px 14px;
+  text-align: left;
+  width: 100%;
+}
+
+.workload-department-head strong {
+  font-size: 15px;
+}
+
+.workload-department-free {
+  color: #16a34a;
+  font-weight: 700;
+  margin-left: auto;
+}
+
+.workload-department .workload-table {
+  padding: 0 4px 4px;
+}
