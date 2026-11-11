@@ -38,7 +38,7 @@ let appliedMigrations: string[] = [];
 type Patch = Record<string, { title?: string; rm?: string }>;
 
 // Code migrations run in order after the file ones; each returns a backup to keep in backups/<name>.
-const MIGRATIONS = ["games-v2", "auto-assign-v1", "sheets-v1", "sheet-dates-v1", "sheets-home-v2", "game-first-v1", "test-bookings-demo-v1"];
+const MIGRATIONS = ["games-v2", "auto-assign-v1", "sheets-v1", "sheet-dates-v1", "sheets-home-v2", "game-first-v1", "test-bookings-demo-v1", "overdue-cleanup-v1"];
 const CODE_MIGRATIONS: Record<string, (data: StoredProjectData) => Record<string, unknown>> = {
   // 把去識別化的遊戲名稱改回真實名稱（原本放在 migrations/games-v2.json，改為內建避免讀檔失敗）。
   "games-v2": (data) => {
@@ -160,6 +160,31 @@ const CODE_MIGRATIONS: Record<string, (data: StoredProjectData) => Record<string
       b("12", "machine-dev-1", ["e57"], "R1", "2026-11-18", "2026-11-19", "待佈署", { note: "示範資料｜實體機台排滿，向工程師借用" }),
     ];
     return { count: settings.testBookings.length };
+  },
+  // 逾期（結束日已過、未完成）的工作改為完成，只留結束日最近、分屬不同 Epic 的 2 筆當範例；原值備份。
+  "overdue-cleanup-v1": (data) => {
+    const today = new Date();
+    const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    const isDone = (task: Epic["tasks"][number]) => task.progress >= 100 || task.type.trim() === "完成" || task.type.trim().toLowerCase() === "done";
+    const overdue = (data.epics ?? []).flatMap((epic) =>
+      epic.tasks.filter((task) => !isDone(task) && task.finishDate && task.finishDate < todayIso).map((task) => ({ epic, task })),
+    );
+    const keep = new Set<string>();
+    const keptEpics = new Set<string>();
+    for (const item of [...overdue].sort((a, b) => b.task.finishDate.localeCompare(a.task.finishDate))) {
+      if (keep.size >= 2) break;
+      if (keptEpics.has(item.epic.id)) continue;
+      keep.add(item.task.id);
+      keptEpics.add(item.epic.id);
+    }
+    const original: Record<string, { type: string; progress: number }> = {};
+    for (const { task } of overdue) {
+      if (keep.has(task.id)) continue;
+      original[task.id] = { type: task.type, progress: task.progress };
+      task.type = "完成";
+      task.progress = 100;
+    }
+    return { kept: [...keep], changed: Object.keys(original).length, original };
   },
 };
 
