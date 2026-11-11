@@ -113,7 +113,7 @@ type LayoutMode = "auto" | "desktop" | "mobile";
 type ImportMode = "append" | "replace";
 
 type SyncStatus = "loading" | "saved" | "saving" | "offline" | "error";
-type PlannerView = "schedule" | "manpower" | "people" | "machines";
+type PlannerView = "schedule" | "manpower" | "people";
 
 const syncStatusLabels: Record<SyncStatus, string> = {
   loading: "資料載入中",
@@ -548,7 +548,7 @@ export default function Home() {
   const [project, setProject] = useState<ProjectMeta>(defaultProject);
   const [epics, setEpics] = useState<Epic[]>(sampleEpics);
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
-  const [activePage, setActivePage] = useState<"planner" | "settings">("planner");
+  const [activePage, setActivePage] = useState<"planner" | "machines" | "settings">("planner");
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [layoutMode, setLayoutMode] = useState<LayoutMode>("auto");
   const [isNarrowViewport, setIsNarrowViewport] = useState(false);
@@ -1647,9 +1647,10 @@ export default function Home() {
             <Menu
               mode="inline"
               selectedKeys={[activePage]}
-              onClick={({ key }) => setActivePage(key as "planner" | "settings")}
+              onClick={({ key }) => setActivePage(key as "planner" | "machines" | "settings")}
               items={[
                 { key: "planner", icon: <TableOutlined />, label: "專案計畫" },
+                { key: "machines", icon: <DesktopOutlined />, label: "測試機排程" },
                 { key: "settings", icon: <SettingOutlined />, label: "設定" },
               ]}
             />
@@ -1716,6 +1717,19 @@ export default function Home() {
                 <RightOutlined className="mobile-drawer-nav-arrow" />
               </button>
               <button
+                className={`mobile-drawer-nav-item ${activePage === "machines" ? "is-active" : ""}`}
+                type="button"
+                aria-current={activePage === "machines" ? "page" : undefined}
+                onClick={() => {
+                  setActivePage("machines");
+                  setIsMobileNavOpen(false);
+                }}
+              >
+                <DesktopOutlined />
+                <span>測試機排程</span>
+                <RightOutlined className="mobile-drawer-nav-arrow" />
+              </button>
+              <button
                 className={`mobile-drawer-nav-item ${activePage === "settings" ? "is-active" : ""}`}
                 type="button"
                 aria-current={activePage === "settings" ? "page" : undefined}
@@ -1736,8 +1750,9 @@ export default function Home() {
                 {syncStatusLabels[syncStatus]}
               </Typography.Text>
             </header>
-            {activePage === "planner" ? (
+            {activePage === "planner" || activePage === "machines" ? (
               <>
+                {activePage === "planner" ? (
                 <Tabs
                   activeKey={activePlannerView}
                   className="project-view-tabs"
@@ -1745,11 +1760,12 @@ export default function Home() {
                     { key: "schedule", label: "專案時程" },
                     { key: "manpower", label: "專案人力" },
                     { key: "people", label: "人員時程" },
-                    { key: "machines", label: "測試機排程" },
                   ]}
                   onChange={(key) => setActivePlannerView(key as PlannerView)}
                 />
+                ) : null}
 
+                {activePage === "planner" ? (
                 <div className="sheet-tabs-row" aria-label="專案分頁">
                   <Tabs
                     activeKey={currentSheetId}
@@ -1793,8 +1809,9 @@ export default function Home() {
                     </Button>
                   ) : null}
                 </div>
+                ) : null}
 
-                {activePlannerView === "machines" ? (
+                {activePage === "machines" ? (
                   <TestMachineView
                     agents={settings.agents}
                     bookings={settings.testBookings}

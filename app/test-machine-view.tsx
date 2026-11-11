@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Alert, Button, Card, DatePicker, Input, InputNumber, Modal, Popover, Segmented, Select, Table, Tag, Tooltip, Typography } from "antd";
 import type { TableProps } from "antd";
 import { CalendarOutlined, PlusOutlined, WarningOutlined } from "@ant-design/icons";
@@ -85,6 +85,12 @@ export function TestMachineView({
   const [editing, setEditing] = useState<{ booking: TestBooking; isNew: boolean } | null>(null);
   const [push, setPush] = useState<{ machineId: string; from: string; workdays: number } | null>(null);
   const conflicts = useMemo(() => findConflicts(bookings), [bookings]);
+  // 打開時直接捲到今天
+  useEffect(() => {
+    const panel = document.querySelector<HTMLElement>(".tm-gantt");
+    const line = panel?.querySelector<HTMLElement>(".gantt-today-line");
+    if (panel && line) panel.scrollLeft = Math.max(0, line.offsetLeft - 160);
+  }, [mode, zoom]);
   const epicById = useMemo(() => new Map(epics.map((epic) => [epic.id, epic])), [epics]);
   const machineById = useMemo(() => new Map(machines.map((machine) => [machine.id, machine])), [machines]);
   const rangeStart = days[0] ? formatIso(days[0]) : todayIso;

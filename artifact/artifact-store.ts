@@ -12,7 +12,7 @@
 import { autoAssign } from "../lib/auto-assign";
 // 含真實名稱的資料修正檔不進 git（artifact/private/，建置時有就打包進去）。
 const privatePatches = import.meta.glob<{ default: Record<string, { title?: string; rm?: string }> }>("./private/*.json", { eager: true });
-import type { Epic, StoredProjectData } from "../lib/planner-types";
+import type { Epic, StoredProjectData, TestBooking } from "../lib/planner-types";
 
 type Snap = { exists: boolean; id: string; data(): Record<string, unknown> | undefined };
 type DocRef = {
@@ -38,7 +38,7 @@ let appliedMigrations: string[] = [];
 type Patch = Record<string, { title?: string; rm?: string }>;
 
 // Code migrations run in order after the file ones; each returns a backup to keep in backups/<name>.
-const MIGRATIONS = ["games-v2", "auto-assign-v1", "sheets-v1", "sheet-dates-v1", "sheets-home-v2", "game-first-v1"];
+const MIGRATIONS = ["games-v2", "auto-assign-v1", "sheets-v1", "sheet-dates-v1", "sheets-home-v2", "game-first-v1", "test-bookings-demo-v1"];
 const CODE_MIGRATIONS: Record<string, (data: StoredProjectData) => Record<string, unknown>> = {
   // 把去識別化的遊戲名稱改回真實名稱（原本放在 migrations/games-v2.json，改為內建避免讀檔失敗）。
   "games-v2": (data) => {
@@ -118,6 +118,48 @@ const CODE_MIGRATIONS: Record<string, (data: StoredProjectData) => Record<string
     const originalOrder = epics.map((epic) => epic.id);
     data.epics = [...games, ...others];
     return { games: list(games), others: list(others), originalOrder };
+  },
+  // 測試機排程的示範資料（備註標「示範資料」，可直接刪除）；只在還沒有任何預約時加入。
+  "test-bookings-demo-v1": (data) => {
+    const settings = (data.settings ??= {});
+    if (settings.testBookings?.length) return { skipped: true };
+    const ipc: Record<string, string> = { "machine-real-1": "艾訊", "machine-real-2": "Quixant", "machine-real-3": "艾訊" };
+    const machines = (settings.testMachines ?? []).map((machine) => (ipc[machine.id] && !machine.ipc ? { ...machine, ipc: ipc[machine.id] } : machine));
+    if (!machines.some((machine) => machine.kind === "開發用機")) {
+      machines.push({ id: "machine-dev-1", name: "開發機 A", kind: "開發用機", ipc: "", floor: "", host: "", billAcceptor: "", status: "可用" });
+    }
+    settings.testMachines = machines;
+    const has = new Set((data.epics ?? []).map((epic) => epic.id));
+    const b = (id: string, machineId: string, epicIds: string[], round: string, startDate: string, finishDate: string, status: TestBooking["status"], extra: Partial<TestBooking> = {}): TestBooking => ({
+      id: `demo-${id}`,
+      machineId,
+      epicIds: epicIds.filter((epicId) => has.has(epicId)),
+      round,
+      item: round === "規則測試" ? "遊戲規則、賠率表" : "general test＋pay＋overview",
+      versionSet: "",
+      qa: "Lanx",
+      startDate,
+      finishDate,
+      status,
+      taskRef: "",
+      note: "示範資料",
+      ...extra,
+    });
+    settings.testBookings = [
+      b("1", "machine-pc-1", ["e59"], "規則測試", "2026-10-26", "2026-10-30", "完成"),
+      b("2", "machine-real-1", ["e59"], "R1", "2026-11-02", "2026-11-06", "完成"),
+      b("3", "machine-real-1", ["e59"], "R2", "2026-11-09", "2026-11-13", "測試中"),
+      b("4", "machine-real-1", ["e57"], "R1", "2026-11-12", "2026-11-17", "待佈署", { note: "示範資料｜和教父 R2 撞期" }),
+      b("5", "machine-real-2", ["e56", "e60"], "R1", "2026-11-10", "2026-11-14", "測試中", { versionSet: "VS-2026-11A" }),
+      b("6", "machine-real-2", ["e56", "e60"], "R2", "2026-11-17", "2026-11-20", "待佈署", { versionSet: "VS-2026-11A" }),
+      b("7", "machine-real-3", ["e59"], "Prod", "2026-11-18", "2026-11-20", "待佈署", { versionSet: "VS-2026-11-PROD" }),
+      b("8", "machine-real-3", ["e59"], "升級測試", "2026-11-23", "2026-11-24", "待佈署", { item: "開機下載更新、空機部署" }),
+      b("9", "machine-pc-2", ["e61"], "規則測試", "2026-11-09", "2026-11-13", "測試中"),
+      b("10", "machine-pc-3", ["e55"], "規則測試", "2026-11-16", "2026-11-20", "待佈署"),
+      b("11", "machine-pc-4", ["e62"], "合併測試", "2026-12-01", "2026-12-03", "待佈署", { note: "示範資料｜故意排在桌機，看提醒" }),
+      b("12", "machine-dev-1", ["e57"], "R1", "2026-11-18", "2026-11-19", "待佈署", { note: "示範資料｜實體機台排滿，向工程師借用" }),
+    ];
+    return { count: settings.testBookings.length };
   },
 };
 
