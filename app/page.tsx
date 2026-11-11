@@ -54,6 +54,7 @@ import { DepartmentCapacityStrip, WorkloadOverview } from "./workload-views";
 import { DEFAULT_TEST_MACHINES } from "@/lib/test-machines";
 import { TestMachineView } from "./test-machine-view";
 import { SettingsView, type SettingsActions } from "./settings-view";
+import { CombinedGantt } from "./combined-gantt";
 import dayjs from "dayjs";
 import {
   addDays,
@@ -291,6 +292,7 @@ type GanttZoom = "day" | "week" | "month";
 type QuickFilter = "all" | "overdue" | "unassigned";
 const GANTT_ZOOM_KEY = "project-plan-gantt-zoom-v1";
 const COMPACT_EPICS_KEY = "project-plan-compact-epics-v1";
+const SCHEDULE_LAYOUT_KEY = "project-plan-schedule-layout-v1";
 const GANTT_CELL: Record<GanttZoom, number> = { day: 34, week: 12, month: 4 };
 const DONE_STATUS = "完成";
 const COMPACT_EPIC_MAIN_WIDTH = 600;
@@ -568,6 +570,10 @@ export default function Home() {
   const [ganttZoom, setGanttZoomState] = useState<GanttZoom>(() => readStored(GANTT_ZOOM_KEY, ["day", "week", "month"] as const, "day"));
   const [compactEpics, setCompactEpicsState] = useState<boolean>(() => readStored(COMPACT_EPICS_KEY, ["1", "0"] as const, "0") === "1");
   const [searchText, setSearchText] = useState("");
+  // 專案時程版面：合併甘特圖（全部 Epic 一張圖）或卡片（逐一編輯）
+  const [scheduleLayout, setScheduleLayoutState] = useState<"combined" | "cards">(() =>
+    readStored(SCHEDULE_LAYOUT_KEY, ["combined", "cards"] as const, "combined"),
+  );
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(() => new Set());
   const [batchShiftDays, setBatchShiftDays] = useState(1);
@@ -1264,11 +1270,12 @@ export default function Home() {
   }
 
   function scrollGanttToToday() {
-    const panels = document.querySelectorAll<HTMLElement>(".epic-gantt-panel, .task-gantt-panel, .people-schedule-gantt");
+    const panels = document.querySelectorAll<HTMLElement>(".epic-gantt-panel, .task-gantt-panel, .people-schedule-gantt, .cg-scroll");
     panels.forEach((panel) => {
       const line = panel.querySelector<HTMLElement>(".gantt-today-line");
       if (line) {
-        panel.scrollLeft = Math.max(0, line.offsetLeft - 120);
+        const label = panel.querySelector<HTMLElement>(".cg-label")?.offsetWidth ?? 0;
+        panel.scrollLeft = Math.max(0, line.offsetLeft - label - 120);
       }
     });
   }
@@ -2125,6 +2132,20 @@ export default function Home() {
                       </>
                     ) : null}
                     {activePlannerView === "schedule" ? (
+                      <Segmented
+                        aria-label="專案時程版面"
+                        options={[
+                          { label: "合併甘特圖", value: "combined" },
+                          { label: "卡片編輯", value: "cards" },
+                        ]}
+                        value={scheduleLayout}
+                        onChange={(value) => {
+                          setScheduleLayoutState(value as "combined" | "cards");
+                          writeStored(SCHEDULE_LAYOUT_KEY, String(value));
+                        }}
+                      />
+                    ) : null}
+                    {activePlannerView === "schedule" && scheduleLayout === "cards" ? (
                       <label className="completed-project-toggle">
                         <Switch aria-label="精簡欄位" checked={effectiveCompact} disabled={isCompactViewport} onChange={setCompactEpics} />
                         <span>{isCompactViewport ? "視窗較窄，已自動精簡欄位" : "精簡欄位，甘特圖放大"}</span>
@@ -2134,6 +2155,18 @@ export default function Home() {
                 </div>
 
                 {activePlannerView === "schedule" ? (
+                  scheduleLayout === "combined" ? (
+                    <CombinedGantt
+                      collapsedEpicIds={collapsedEpicIds}
+                      days={days}
+                      epics={visibleEpics}
+                      header={<GanttHeader days={days} zoom={ganttZoom} />}
+                      panelStyle={ganttPanelStyle(days.length, ganttZoom)}
+                      todayIso={todayIso}
+                      onEditEpic={setEditingEpicId}
+                      onToggleEpic={toggleEpic}
+                    />
+                  ) : (
                   <section className="project-board" aria-label="Epic 與 Task 專案列表">
                   <div className="epic-list">
                     {visibleEpics.map((epic) => {
@@ -2538,6 +2571,7 @@ export default function Home() {
                     })}
                   </div>
                   </section>
+                  )
                 ) : activePlannerView === "manpower" ? (
                   <>
                     <DepartmentCapacityStrip capacities={departmentCapacities} weeks={4} />
