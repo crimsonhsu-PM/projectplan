@@ -2157,7 +2157,9 @@ export default function Home() {
                 {activePlannerView === "schedule" ? (
                   scheduleLayout === "combined" ? (
                     <CombinedGantt
+                      agents={settings.agents}
                       collapsedEpicIds={collapsedEpicIds}
+                      departments={settings.departments}
                       days={days}
                       epics={visibleEpics}
                       header={<GanttHeader days={days} zoom={ganttZoom} />}

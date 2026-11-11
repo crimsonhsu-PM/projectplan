@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { Progress, Tag, Tooltip } from "antd";
 import { DownOutlined, EditOutlined, RightOutlined } from "@ant-design/icons";
-import type { Epic, Task } from "@/lib/planner-types";
+import type { AgentOption, Epic, Task } from "@/lib/planner-types";
 import { formatIso } from "@/lib/planner-domain";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -13,8 +13,12 @@ function isDone(task: Task) {
 }
 
 // 所有 Epic 共用一張甘特圖：一個日期表頭、一條捲軸、一條今天線
+const DEPARTMENT_COLORS = ["#0d5bff", "#16a34a", "#f59e0b", "#7c3aed", "#0891b2", "#db2777", "#65a30d", "#ea580c", "#64748b"];
+
 export function CombinedGantt({
   epics,
+  agents,
+  departments,
   days,
   todayIso,
   collapsedEpicIds,
@@ -24,6 +28,8 @@ export function CombinedGantt({
   onEditEpic,
 }: {
   epics: Epic[];
+  agents: AgentOption[];
+  departments: string[];
   days: Date[];
   todayIso: string;
   collapsedEpicIds: Set<string>;
@@ -55,6 +61,15 @@ export function CombinedGantt({
     } as React.CSSProperties;
   }
 
+  // 職稱：以負責人在人員設定裡的部門為準，沒有對應人員時用工作本身的部門
+  const departmentOf = new Map(agents.map((agent) => [agent.name, agent.department]));
+  const roleOf = (task: Task) => departmentOf.get(task.assignee.trim()) || task.department || "未設定";
+  const colorOf = (role: string) => {
+    const found = departments.indexOf(role);
+    const index = found >= 0 ? found : Array.from(role).reduce((sum, char) => sum + char.charCodeAt(0), 0);
+    return DEPARTMENT_COLORS[index % DEPARTMENT_COLORS.length];
+  };
+
   const overdue = (task: Task) => !isDone(task) && task.finishDate < todayIso;
 
   return (
@@ -64,7 +79,7 @@ export function CombinedGantt({
         <div className="cg-row cg-head">
           <div className="cg-label cg-label-head">
             <span>Epic／工作項目</span>
-            <span>負責人</span>
+            <span>職務／負責人</span>
           </div>
           <div className="cg-cells cg-head-cells">{header}</div>
         </div>
@@ -117,14 +132,21 @@ export function CombinedGantt({
                           <span className="cg-task-title" title={task.title}>
                             {task.title}
                           </span>
+                          <span className="cg-role" style={{ "--role": colorOf(roleOf(task)) } as React.CSSProperties}>
+                            {roleOf(task)}
+                          </span>
                           <span className={`cg-assignee ${overdue(task) ? "cg-late" : ""}`}>{task.assignee || "未指派"}</span>
                         </div>
                         <div className="cg-cells gantt-board-row">
                           {bar ? (
                             <span
                               className={`gantt-board-bar ${overdue(task) ? "gantt-board-bar-overdue" : ""} ${done ? "cg-bar-done" : ""}`}
-                              style={bar}
-                              title={`${task.wbs} ${task.title}｜${task.assignee || "未指派"}｜${task.startDate} ~ ${task.finishDate}｜${task.type}`}
+                              style={
+                                overdue(task) || done
+                                  ? bar
+                                  : ({ ...bar, "--bar": colorOf(roleOf(task)), "--bar-deep": colorOf(roleOf(task)) } as React.CSSProperties)
+                              }
+                              title={`${task.wbs} ${task.title}｜${roleOf(task)} ${task.assignee || "未指派"}｜${task.startDate} ~ ${task.finishDate}｜${task.type}`}
                             />
                           ) : null}
                         </div>
