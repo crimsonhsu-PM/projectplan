@@ -786,7 +786,11 @@ export default function Home() {
   );
   const sheetNameById = useMemo(() => new Map(settings.sheets.map((sheet) => [sheet.id, sheet.name])), [settings.sheets]);
   const currentSheetId = settings.sheets.some((sheet) => sheet.id === activeSheetId) ? activeSheetId : ALL_SHEETS;
-  const currentSheet = settings.sheets.find((sheet) => sheet.id === currentSheetId);
+  // 分頁只作用在「專案時程」；專案人力、人員時程、測試排程一律看全部專案
+  const currentSheet =
+    activePage === "planner" && activePlannerView === "schedule"
+      ? settings.sheets.find((sheet) => sheet.id === currentSheetId)
+      : undefined;
   // 分頁有自己的名稱與甘特圖起始日；「全部」用專案本身的設定。
   const viewProject: ProjectMeta = currentSheet
     ? { ...project, projectName: currentSheet.name, startDate: currentSheet.startDate || project.startDate }
@@ -1825,7 +1829,7 @@ export default function Home() {
                 />
                 ) : null}
 
-                {activePage === "planner" ? (
+                {activePage === "planner" && activePlannerView === "schedule" ? (
                 <div className="sheet-tabs-row" aria-label="專案分頁">
                   <Tabs
                     activeKey={currentSheetId}
