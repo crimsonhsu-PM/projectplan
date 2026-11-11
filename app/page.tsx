@@ -5,7 +5,6 @@ import {
   Button,
   Card,
   Checkbox,
-  ColorPicker,
   ConfigProvider,
   DatePicker,
   Drawer,
@@ -53,7 +52,8 @@ import { isUnassigned } from "@/lib/auto-assign";
 import { buildDepartmentCapacity, buildWorkloads, countConcurrent, shiftWorkdays, weekStarts as getWeekStarts } from "@/lib/workload";
 import { DepartmentCapacityStrip, WorkloadOverview } from "./workload-views";
 import { DEFAULT_TEST_MACHINES } from "@/lib/test-machines";
-import { TestMachineSettingsCard, TestMachineView } from "./test-machine-view";
+import { TestMachineView } from "./test-machine-view";
+import { SettingsView, type SettingsActions } from "./settings-view";
 import dayjs from "dayjs";
 import {
   addDays,
@@ -1343,10 +1343,6 @@ export default function Home() {
     });
   }
 
-  function updateSettingsList(key: "departments", values: string[]) {
-    setSettings((current) => ({ ...current, [key]: values }));
-  }
-
   function updateAgents(agents: AgentOption[]) {
     setSettings((current) => ({ ...current, agents }));
   }
@@ -1355,15 +1351,56 @@ export default function Home() {
     setSettings((current) => ({ ...current, [key]: values }));
   }
 
-  function addHoliday() {
-    setSettings((current) => ({
-      ...current,
-      holidays: [
-        ...current.holidays,
-        { id: `holiday-${Date.now()}`, startDate: "", endDate: "", note: "" },
-      ],
-    }));
-  }
+  // 系統設定：改名時一併更新已使用的 Epic／工作項目，避免資料對不上
+  const settingsActions: SettingsActions = {
+    renameDepartment: (from, to) => {
+      setSettings((current) => ({
+        ...current,
+        departments: current.departments.map((item) => (item === from ? to : item)),
+        agents: current.agents.map((agent) => (agent.department === from ? { ...agent, department: to } : agent)),
+      }));
+      setEpics((current) =>
+        current.map((epic) => ({
+          ...epic,
+          department: epic.department === from ? to : epic.department,
+          tasks: epic.tasks.map((task) => (task.department === from ? { ...task, department: to } : task)),
+        })),
+      );
+    },
+    addDepartment: (name) =>
+      setSettings((current) => (current.departments.includes(name) ? current : { ...current, departments: [...current.departments, name] })),
+    deleteDepartment: (name) => setSettings((current) => ({ ...current, departments: current.departments.filter((item) => item !== name) })),
+    updateAgents,
+    renameAgent: (id, to) => {
+      const from = settings.agents.find((agent) => agent.id === id)?.name;
+      setSettings((current) => ({
+        ...current,
+        agents: current.agents.map((agent) => (agent.id === id ? { ...agent, name: to } : agent)),
+        testBookings: current.testBookings.map((booking) => (from && booking.qa === from ? { ...booking, qa: to } : booking)),
+      }));
+      if (!from) return;
+      setEpics((current) =>
+        current.map((epic) => ({
+          ...epic,
+          assignee: epic.assignee === from ? to : epic.assignee,
+          tasks: epic.tasks.map((task) => (task.assignee === from ? { ...task, assignee: to } : task)),
+        })),
+      );
+    },
+    updateOptions: (key, values) => updateColoredSettingsList(key, values),
+    renameOption: (key, from, to) => {
+      setSettings((current) => ({ ...current, [key]: current[key].map((item) => (item.label === from ? { ...item, label: to } : item)) }));
+      setEpics((current) =>
+        current.map((epic) =>
+          key === "types"
+            ? { ...epic, type: epic.type === from ? to : epic.type }
+            : normalizeEpic({ ...epic, tasks: epic.tasks.map((task) => (task.type === from ? { ...task, type: to } : task)) }),
+        ),
+      );
+    },
+    updateHolidays,
+    updateMachines: (machines) => setSettings((current) => ({ ...current, testMachines: machines })),
+  };
 
   function updateHolidays(holidays: HolidayRange[]) {
     setSettings((current) => ({ ...current, holidays }));
@@ -2499,45 +2536,7 @@ export default function Home() {
                 )}
               </>
             ) : (
-              <section className="settings-page" aria-label="設定">
-                <div className="settings-header">
-                  <div>
-                    <Typography.Title level={3}>系統設定</Typography.Title>
-                    <Typography.Text type="secondary">管理專案計畫表使用的下拉選項與假日資料。</Typography.Text>
-                  </div>
-                </div>
-                <div className="settings-grid">
-                  <EditableOptionCard
-                    title="部門設定"
-                    values={settings.departments}
-                    onChange={(values) => updateSettingsList("departments", values)}
-                  />
-                  <AgentSettingsCard
-                    departments={settings.departments}
-                    values={settings.agents}
-                    onChange={updateAgents}
-                  />
-                  <TestMachineSettingsCard
-                    machines={settings.testMachines}
-                    onChange={(next) => setSettings((current) => ({ ...current, testMachines: next }))}
-                  />
-                  <HolidaySettingsCard
-                    values={settings.holidays}
-                    onAdd={addHoliday}
-                    onChange={updateHolidays}
-                  />
-                  <ColoredOptionCard
-                    title="Type設定"
-                    values={settings.types}
-                    onChange={(values) => updateColoredSettingsList("types", values)}
-                  />
-                  <ColoredOptionCard
-                    title="狀態設定"
-                    values={settings.statuses}
-                    onChange={(values) => updateColoredSettingsList("statuses", values)}
-                  />
-                </div>
-              </section>
+              <SettingsView actions={settingsActions} epics={epics} settings={settings} />
             )}
           </Layout.Content>
         </Layout>
@@ -3283,225 +3282,6 @@ function ProjectManpowerDetails({ departments }: { departments: ManpowerDepartme
       size="small"
       tableLayout="fixed"
     />
-  );
-}
-
-function EditableOptionCard({
-  title,
-  values,
-  onChange,
-}: {
-  title: string;
-  values: string[];
-  onChange: (values: string[]) => void;
-}) {
-  function updateValue(index: number, value: string) {
-    onChange(values.map((item, itemIndex) => (itemIndex === index ? value : item)));
-  }
-
-  function deleteValue(index: number) {
-    onChange(values.filter((_, itemIndex) => itemIndex !== index));
-  }
-
-  return (
-    <Card
-      className="settings-card"
-      title={title}
-      extra={
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => onChange([...values, ""])}>
-          新增
-        </Button>
-      }
-    >
-      <div className="settings-list">
-        {values.map((value, index) => (
-          <Space.Compact className="settings-row" key={`${title}-${index}`}>
-            <Input value={value} onChange={(event) => updateValue(index, event.target.value)} />
-            <Button danger icon={<DeleteOutlined />} onClick={() => deleteValue(index)} aria-label={`刪除 ${value}`} />
-          </Space.Compact>
-        ))}
-      </div>
-    </Card>
-  );
-}
-
-function ColoredOptionCard({
-  title,
-  values,
-  onChange,
-}: {
-  title: string;
-  values: SettingOption[];
-  onChange: (values: SettingOption[]) => void;
-}) {
-  function updateValue(index: number, patch: Partial<SettingOption>) {
-    onChange(values.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item)));
-  }
-
-  function deleteValue(index: number) {
-    onChange(values.filter((_, itemIndex) => itemIndex !== index));
-  }
-
-  return (
-    <Card
-      className="settings-card"
-      title={title}
-      extra={
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() =>
-            onChange([
-              ...values,
-              { id: `option-${Date.now()}`, label: "", color: "#0d5bff" },
-            ])
-          }
-        >
-          新增
-        </Button>
-      }
-    >
-      <div className="settings-list">
-        {values.map((value, index) => (
-          <div className="settings-row colored-settings-row" key={value.id}>
-            <ColorPicker
-              value={value.color}
-              onChange={(_, hex) => updateValue(index, { color: hex })}
-              presets={[
-                {
-                  label: "常用",
-                  colors: ["#0d5bff", "#16a34a", "#f59e0b", "#f97316", "#7c3aed", "#06b6d4", "#ef4444", "#94a3b8"],
-                },
-              ]}
-            />
-            <Input value={value.label} onChange={(event) => updateValue(index, { label: event.target.value })} />
-            <Button danger icon={<DeleteOutlined />} onClick={() => deleteValue(index)} aria-label={`刪除 ${value.label}`} />
-          </div>
-        ))}
-      </div>
-    </Card>
-  );
-}
-
-function AgentSettingsCard({
-  values,
-  departments,
-  onChange,
-}: {
-  values: AgentOption[];
-  departments: string[];
-  onChange: (values: AgentOption[]) => void;
-}) {
-  function updateValue(index: number, value: Partial<AgentOption>) {
-    onChange(values.map((item, itemIndex) => (itemIndex === index ? { ...item, ...value } : item)));
-  }
-
-  function deleteValue(index: number) {
-    onChange(values.filter((_, itemIndex) => itemIndex !== index));
-  }
-
-  const departmentOptions = toSelectOptions(departments);
-
-  return (
-    <Card
-      className="settings-card"
-      title="負責人設定"
-      extra={
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() =>
-            onChange([
-              ...values,
-              { id: `agent-${Date.now()}`, department: "", name: "" },
-            ])
-          }
-        >
-          新增
-        </Button>
-      }
-    >
-      <div className="settings-list">
-        {values.map((value, index) => (
-          <div className="settings-row agent-settings-row" key={value.id || `agent-${index}`}>
-            <Select
-              aria-label={`${value.name || "Agent"} 部門`}
-              className="agent-department-select"
-              options={departmentOptions}
-              value={value.department || undefined}
-              onChange={(department) => updateValue(index, { department })}
-            />
-            <Input
-              aria-label="Agent 名稱"
-              value={value.name}
-              onChange={(event) => updateValue(index, { name: event.target.value })}
-            />
-            <Button danger icon={<DeleteOutlined />} onClick={() => deleteValue(index)} aria-label={`刪除 ${value.name}`} />
-          </div>
-        ))}
-      </div>
-    </Card>
-  );
-}
-
-function HolidaySettingsCard({
-  values,
-  onAdd,
-  onChange,
-}: {
-  values: HolidayRange[];
-  onAdd: () => void;
-  onChange: (values: HolidayRange[]) => void;
-}) {
-  function updateValue(index: number, patch: Partial<HolidayRange>) {
-    onChange(values.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item)));
-  }
-
-  function deleteValue(index: number) {
-    onChange(values.filter((_, itemIndex) => itemIndex !== index));
-  }
-
-  return (
-    <Card
-      className="settings-card"
-      title="國定假日設定"
-      extra={
-        <Button type="primary" icon={<PlusOutlined />} onClick={onAdd}>
-          新增
-        </Button>
-      }
-    >
-      <div className="settings-list">
-        {values.map((value, index) => (
-          <div className="holiday-row" key={value.id}>
-            <DatePicker.RangePicker
-              allowClear={false}
-              inputReadOnly
-              value={
-                value.startDate && value.endDate
-                  ? [dayjs(value.startDate), dayjs(value.endDate)]
-                  : null
-              }
-              onChange={(dates) => {
-                if (!dates?.[0] || !dates?.[1]) {
-                  return;
-                }
-                updateValue(index, {
-                  startDate: dates[0].format("YYYY-MM-DD"),
-                  endDate: dates[1].format("YYYY-MM-DD"),
-                });
-              }}
-            />
-            <Input
-              value={value.note}
-              placeholder="備註"
-              onChange={(event) => updateValue(index, { note: event.target.value })}
-            />
-            <Button danger icon={<DeleteOutlined />} onClick={() => deleteValue(index)} aria-label={`刪除 ${value.note || value.startDate}`} />
-          </div>
-        ))}
-      </div>
-    </Card>
   );
 }
 
