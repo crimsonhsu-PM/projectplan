@@ -3359,3 +3359,68 @@ select {
 .project-header > .project-title {
   align-self: center;
 }
+
+/* 人員總表展開：依 Epic 分組＋前後項 */
+.workload-groups {
+  display: grid;
+  gap: 14px;
+  padding: 4px 8px;
+}
+
+.workload-group header {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.workload-task {
+  border-left: 3px solid #d0dcf5;
+  display: grid;
+  gap: 2px;
+  margin: 0 0 8px 6px;
+  padding: 4px 0 4px 12px;
+}
+
+.workload-task.workload-task-overdue {
+  border-left-color: #dc2626;
+}
+
+.workload-task-main,
+.workload-neighbor {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 48px 52px minmax(160px, 1fr) auto auto;
+}
+
+.workload-neighbor {
+  color: #98a2b3;
+  font-size: 12px;
+  grid-template-columns: 48px 52px minmax(160px, 1fr) auto;
+}
+
+.workload-task-main {
+  background: #f2f6ff;
+  border-radius: 6px;
+  padding: 6px 8px;
+  margin-left: -8px;
+}
+
+.workload-neighbor-label {
+  color: #98a2b3;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.workload-task-main .workload-neighbor-label {
+  color: #0d5bff;
+}
+
+.workload-neighbor-wbs {
+  font-variant-numeric: tabular-nums;
+}
+
+.workload-task-overdue .workload-task-date {
+  color: #dc2626;
+}

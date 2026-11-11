@@ -5,8 +5,11 @@ import type { AgentOption, Epic, Task } from "./planner-types";
 export type OpenTask = {
   epicId: string;
   epicTitle: string;
+  epicWbs: string;
   task: Task;
   overdue: boolean;
+  prev?: Task; // 同一個 Epic 裡的前一項工作
+  next?: Task; // 同一個 Epic 裡的下一項工作
 };
 
 export type PersonWorkload = {
@@ -88,7 +91,16 @@ export function buildWorkloads(
       const overdue = Boolean(task.finishDate) && task.finishDate < todayIso;
       person.openCount += 1;
       if (overdue) person.overdueCount += 1;
-      person.openTasks.push({ epicId: epic.id, epicTitle: epic.title, task, overdue });
+      const index = epic.tasks.indexOf(task);
+      person.openTasks.push({
+        epicId: epic.id,
+        epicTitle: epic.title,
+        epicWbs: epic.wbs,
+        task,
+        overdue,
+        prev: index > 0 ? epic.tasks[index - 1] : undefined,
+        next: index >= 0 && index < epic.tasks.length - 1 ? epic.tasks[index + 1] : undefined,
+      });
       starts.forEach((weekStart, index) => {
         const weekEnd = formatIso(addDays(parse(weekStart), 6));
         // 逾期未完成的工作視為還在手上，算進本週

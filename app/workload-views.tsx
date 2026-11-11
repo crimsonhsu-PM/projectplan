@@ -2,7 +2,8 @@
 
 import { Button, Table, Tag, Tooltip, Typography } from "antd";
 import type { TableProps } from "antd";
-import type { DepartmentCapacity, PersonWorkload } from "@/lib/workload";
+import type { DepartmentCapacity, OpenTask, PersonWorkload } from "@/lib/workload";
+import type { Task } from "@/lib/planner-types";
 
 function shortDate(iso: string) {
   return iso.slice(5).replace("-", "/");
@@ -120,18 +121,7 @@ export function WorkloadOverview({
         scroll={{ x: 560 + 44 * weekStarts.length }}
         expandable={{
           rowExpandable: (person) => person.openTasks.length > 0,
-          expandedRowRender: (person) => (
-            <ul className="workload-task-list">
-              {person.openTasks.map(({ epicId, epicTitle, task, overdue }) => (
-                <li key={`${epicId}-${task.id}`} className={overdue ? "workload-task-overdue" : ""}>
-                  <span className="workload-task-date">{task.startDate.slice(5)} → {task.finishDate.slice(5)}</span>
-                  <span className="workload-task-title">{task.title}</span>
-                  <span className="workload-task-epic">{epicTitle}</span>
-                  {overdue ? <Tag color="red">逾期</Tag> : <Tag>{task.type || "未設定"}</Tag>}
-                </li>
-              ))}
-            </ul>
-          ),
+          expandedRowRender: (person) => <PersonTasks person={person} />,
         }}
       />
     </section>
@@ -165,5 +155,56 @@ export function DepartmentCapacityStrip({ capacities, weeks }: { capacities: Dep
         })}
       </div>
     </section>
+  );
+}
+
+function neighbor(label: string, task: Task | undefined) {
+  if (!task) return null;
+  const done = task.progress >= 100 || task.type.trim() === "完成";
+  return (
+    <div className="workload-neighbor">
+      <span className="workload-neighbor-label">{label}</span>
+      <span className="workload-neighbor-wbs">{task.wbs}</span>
+      <span>{task.title}</span>
+      <span className="workload-muted">
+        {task.assignee || "未指派"}｜{task.startDate.slice(5)} → {task.finishDate.slice(5)}｜{done ? "完成" : task.type || "未設定"}
+      </span>
+    </div>
+  );
+}
+
+// 展開：依 Epic 分組，每筆工作附上同一個 Epic 裡的前一項、下一項，看得出前後關係
+function PersonTasks({ person }: { person: PersonWorkload }) {
+  const groups = new Map<string, OpenTask[]>();
+  person.openTasks.forEach((item) => groups.set(item.epicId, [...(groups.get(item.epicId) ?? []), item]));
+  return (
+    <div className="workload-groups">
+      {Array.from(groups.values()).map((items) => (
+        <section className="workload-group" key={items[0].epicId}>
+          <header>
+            <Tag color="blue">EPIC {items[0].epicWbs}</Tag>
+            <strong>{items[0].epicTitle}</strong>
+          </header>
+          {items
+            .slice()
+            .sort((a, b) => a.task.wbs.localeCompare(b.task.wbs, undefined, { numeric: true }))
+            .map(({ task, overdue, prev, next }) => (
+              <div className={`workload-task ${overdue ? "workload-task-overdue" : ""}`} key={task.id}>
+                {neighbor("前一項", prev)}
+                <div className="workload-task-main">
+                  <span className="workload-neighbor-label">本項</span>
+                  <span className="workload-neighbor-wbs">{task.wbs}</span>
+                  <strong>{task.title}</strong>
+                  <span className="workload-task-date">
+                    {task.startDate.slice(5)} → {task.finishDate.slice(5)}
+                  </span>
+                  {overdue ? <Tag color="red">逾期</Tag> : <Tag>{task.type || "未設定"}</Tag>}
+                </div>
+                {neighbor("下一項", next)}
+              </div>
+            ))}
+        </section>
+      ))}
+    </div>
   );
 }
